@@ -31,10 +31,17 @@ export default function Home() {
       setUserRole(localStorage.getItem("userRole") || "user");
     }
 
-    // Mengambil Jadwal Terdekat (DENGAN LOGIKA FILTER TANGGAL)
+    // Mengambil Jadwal Terdekat (DENGAN LOGIKA FILTER TANGGAL & PENGAMAN)
     fetch("http://localhost:8080/events")
       .then((res) => res.json())
       .then((data) => {
+        // 🚨 SUNTIKAN ANTI-ERROR: Cegah layar putih jika database kosong
+        if (!Array.isArray(data)) {
+          setLatestEvents([]);
+          setIsLoading(false);
+          return;
+        }
+
         // 1. Ambil tanggal hari ini (jam diset ke 00:00:00)
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -64,8 +71,6 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [images.length]);
 
-  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-
   // 🚪 FUNGSI LOGOUT (Hapus Data Sesi)
   const handleLogout = () => {
     localStorage.clear();
@@ -88,7 +93,7 @@ export default function Home() {
     <main className="min-h-screen bg-[#0a192f] text-white font-sans relative">
       
       {/* 🚀 NAVBAR */}
-      <nav className="absolute top-0 w-full p-6 flex justify-between items-center z-50 bg-black/20 backdrop-blur-md">
+      <nav className="absolute top-0 w-full p-6 flex justify-between items-center z-50 bg-black/20 backdrop-blur-10">
         <div className="text-3xl font-black italic tracking-tighter drop-shadow-md">
           RACEDAY<span className="text-red-600">TRIPS</span>
         </div>
@@ -148,8 +153,6 @@ export default function Home() {
       {/* 📱 DROPDOWN MENU HP */}
       {isMobileMenuOpen && (
         <div className="absolute top-[80px] left-0 w-full bg-[#050b1a]/95 backdrop-blur-xl z-40 md:hidden flex flex-col items-center py-8 space-y-6 border-b border-gray-800 shadow-2xl">
-          
-          {/* 👤 INFO PROFIL DI HP (JIKA LOGIN) */}
           {isLoggedIn && (
             <div className="text-center mb-4 border-b border-gray-800 w-3/4 pb-6">
               <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center font-black text-3xl mx-auto mb-3 uppercase">{username.charAt(0)}</div>
@@ -163,7 +166,6 @@ export default function Home() {
           <Link href="/wsbk" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold uppercase tracking-wider hover:text-red-500">WSBK</Link>
           <Link href="/gtworld" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold uppercase tracking-wider hover:text-red-500">GT World</Link>
           
-          {/* LOGIKA TOMBOL LOGIN vs LOGOUT (HP) */}
           {isLoggedIn ? (
             <>
               {userRole === "admin" ? (
@@ -227,24 +229,63 @@ export default function Home() {
             </div>
           ) : latestEvents.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              {latestEvents.map((event) => (
-                <Link href={`/event/${event.id}`} key={event.id} className="group">
-                  <div className="bg-[#0a0a0a] border border-gray-800 rounded-2xl overflow-hidden hover:border-red-600 transition-all hover:-translate-y-2 shadow-lg h-full flex flex-col">
-                    <div className="h-48 relative overflow-hidden bg-gray-900 shrink-0">
-                      {event.image ? ( <img src={event.image} alt={event.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"/> ) : ( <div className="w-full h-full flex items-center justify-center text-gray-700 font-bold">NO IMAGE</div> )}
-                      <div className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-md uppercase">{event.category}</div>
+              
+              {/* 🔄 MAPPING EVENT DENGAN BADGE BENDERA */}
+              {latestEvents.map((event) => {
+                // Konversi nama negara ke kode 2 huruf (Contoh: "Indonesia" -> "id", "Japan" -> "jp")
+                const countryCode = event.country ? event.country.substring(0, 2).toLowerCase() : "id";
+
+                return (
+                  <Link href={`/event/${event.id}`} key={event.id} className="group">
+                    <div className="bg-[#0a0a0a] border border-gray-800 rounded-2xl overflow-hidden hover:border-red-600 transition-all hover:-translate-y-2 shadow-lg h-full flex flex-col">
+                      
+                      {/* AREA GAMBAR */}
+                      <div className="h-48 relative overflow-hidden bg-gray-900 shrink-0">
+                        {event.image ? ( <img src={event.image} alt={event.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"/> ) : ( <div className="w-full h-full flex items-center justify-center text-gray-700 font-bold">NO IMAGE</div> )}
+                        
+                        <div className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-md uppercase shadow-md">{event.category}</div>
+                        
+                        {/* 🚩 BADGE TANGGAL DENGAN BACKGROUND BENDERA (DI ATAS GAMBAR) */}
+                        <div className="absolute bottom-3 right-3 w-16 h-16 rounded-xl flex flex-col items-center justify-center overflow-hidden border border-gray-800 shadow-2xl group-hover:scale-110 transition-transform duration-500">
+                          {/* Layer Gambar Bendera */}
+                          <div 
+                            className="absolute inset-0 z-0 opacity-60 blur-[1px]" 
+                            style={{ backgroundImage: `url('https://flagcdn.com/w80/${countryCode}.png')`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                          ></div>
+                          {/* Overlay Hitam untuk Kontras */}
+                          <div className="absolute inset-0 bg-black/40 z-0"></div>
+                          
+                          {/* Text Tanggal */}
+                          <span className="relative z-10 text-red-500 font-black text-[10px] uppercase leading-none tracking-widest">
+                            {new Date(event.date).toLocaleString('id-ID', { month: 'short' })}
+                          </span>
+                          <span className="relative z-10 text-white font-black text-2xl leading-none mt-0.5">
+                            {new Date(event.date).getDate()}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* AREA INFO TEKS */}
+                      <div className="p-5 flex flex-col flex-grow">
+                        <h3 className="text-xl font-bold text-white mb-2 leading-tight group-hover:text-red-500 transition-colors">{event.name}</h3>
+                        <p className="text-gray-400 text-sm mb-4">📍 {event.circuit}</p>
+                        
+                        <div className="mt-auto pt-4 border-t border-gray-800 flex justify-between items-center">
+                          <span className="text-white font-black text-lg">Rp {event.price.toLocaleString('id-ID')}</span>
+                          
+                          {/* Nama Negara Kecil di Kanan Bawah */}
+                          <span className="text-[10px] font-bold text-gray-400 bg-gray-900 px-2 py-1 rounded-md border border-gray-800 uppercase tracking-widest">
+                            {event.country ? event.country : "INTL"}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="p-5 flex flex-col flex-grow">
-                      <p className="text-red-500 font-black tracking-widest text-sm mb-1">{formatDate(event.date)}</p>
-                      <h3 className="text-xl font-bold text-white mb-2 leading-tight">{event.name}</h3>
-                      <p className="text-gray-400 text-sm mb-4">📍 {event.circuit}</p>
-                      <div className="mt-auto pt-4 border-t border-gray-800 flex justify-between items-center"><span className="text-white font-black text-lg">Rp {event.price.toLocaleString('id-ID')}</span></div>
-                    </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
+
             </div>
-          ) : ( <p className="text-gray-500 text-center italic py-10">Jadwal balapan sedang disiapkan oleh Admin.</p> )}
+          ) : ( <p className="text-gray-500 text-center italic py-10">he race schedule is being prepared by the Admin.</p> )}
         </div>
       </div>
 
@@ -274,14 +315,71 @@ export default function Home() {
       {/* 🌐 FOOTER SECTION */}
       <footer className="bg-[#02050d] border-t border-gray-800 py-16 md:py-20 px-6 relative z-20">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 text-gray-400 text-center md:text-left">
-          <div className="space-y-4"><div className="text-3xl font-black italic tracking-tighter text-white">RACEDAY<span className="text-red-600">TRIPS</span></div><p className="text-sm">Your premium gateway to the world's most exciting motorsport events. Experience the speed live.</p></div>
-          <div className="space-y-3"><h4 className="font-bold text-white uppercase text-sm tracking-wider mb-4">Contact Us</h4><p className="text-sm">Email: paddock@racedaytrips.com</p><p className="text-sm">Phone: +62 812 3456 7890</p><p className="text-sm">Mataram, Lombok - Indonesia 🇮🇩</p></div>
-          <div className="space-y-3 flex flex-col items-center md:items-start"><h4 className="font-bold text-white uppercase text-sm tracking-wider mb-4">Categories</h4>{categories.map(cat => (<Link key={cat.name} href={cat.href} className="text-sm hover:text-red-500">{cat.name}</Link>))}</div>
-          <div className="space-y-4 flex flex-col items-center md:items-start"><h4 className="font-bold text-white uppercase text-sm tracking-wider mb-4">Follow The Speed</h4><div className="flex space-x-6 text-2xl"><a href="#" className="hover:text-red-600 transition-colors">𝕏</a><a href="#" className="hover:text-red-600 transition-colors"></a><a href="#" className="hover:text-red-600 transition-colors"></a></div></div>
+          
+          <div className="space-y-4">
+            <div className="text-3xl font-black italic tracking-tighter text-white">RACEDAY<span className="text-red-600">TRIPS</span></div>
+            <p className="text-sm">Your premium gateway to the world's most exciting motorsport events. Experience the speed live.</p>
+          </div>
+          
+          <div className="space-y-3">
+            <h4 className="font-bold text-white uppercase text-sm tracking-wider mb-4">Contact Us</h4>
+            <p className="text-sm">Email: raceday.trips@gmail.com</p>
+            <p className="text-sm">Phone: +62 812 3456 7890</p>
+            <p className="text-sm">Mataram, Lombok - Indonesia 🇮🇩</p>
+          </div>
+          
+          <div className="space-y-3 flex flex-col items-center md:items-start">
+            <h4 className="font-bold text-white uppercase text-sm tracking-wider mb-4">Categories</h4>
+            {categories.map(cat => (
+              <Link key={cat.name} href={cat.href} className="text-sm hover:text-red-500 transition-colors">
+                {cat.name}
+              </Link>
+            ))}
+          </div>
+          
+          {/* ✅ BAGIAN MEDIA SOSIAL YANG DIPERBARUI */}
+          <div className="space-y-4 flex flex-col items-center md:items-start">
+            <h4 className="font-bold text-white uppercase text-sm tracking-wider mb-4">Follow The Speed</h4>
+            
+            <div className="flex space-x-6 items-center">
+              {/* 1. X / Twitter (Disabled / Segera Hadir) */}
+              <span 
+                title="X/Twitter Segera Hadir!" 
+                className="text-2xl text-gray-700 cursor-not-allowed"
+              >
+                𝕏
+              </span>
+              
+              {/* 2. Instagram (@racedaytrips) */}
+              <a href="https://instagram.com/racedaytrips" target="_blank" rel="noreferrer" className="hover:text-red-600 transition-colors" title="@racedaytrips di Instagram">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                  <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                </svg>
+              </a>
+
+              {/* 3. Threads (@racedaytrips) */}
+              <a href="https://threads.net/@racedaytrips" target="_blank" rel="noreferrer" className="hover:text-red-600 transition-colors" title="@racedaytrips di Threads">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 12a2 2 0 1 0-4 0 2 2 0 0 0 4 0z"/>
+                  <path d="M12 16c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4v1c0 1.1-.9 2-2 2s-2-.9-2-2v-1"/>
+                  <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10"/>
+                </svg>
+              </a>
+            </div>
+
+            {/* Opsional: Menampilkan handle teks di bawah ikon agar user langsung tahu namanya */}
+            <p className="text-xs text-gray-500 font-medium tracking-wide mt-2">@racedaytrips</p>
+          </div>
+
         </div>
-        <div className="max-w-7xl mx-auto text-center mt-16 pt-8 border-t border-gray-900 text-xs text-gray-600">&copy; 2026 RACEDAYTRIPS Platform. All Rights Reserved. Official Ticket Partner.</div>
+        
+        <div className="max-w-7xl mx-auto text-center mt-16 pt-8 border-t border-gray-900 text-xs text-gray-600">
+          &copy; 2026 RACEDAYTRIPS Platform. All Rights Reserved. Official Ticket Partner.
+        </div>
       </footer>
 
-    </main>
+      </main>
   );
 }
