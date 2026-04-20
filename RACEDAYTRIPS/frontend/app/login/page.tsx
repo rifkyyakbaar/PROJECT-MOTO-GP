@@ -67,16 +67,13 @@ export default function LoginPage() {
       {/* 🖼️ BACKGROUND IMAGE ESTETIK */}
       <div className="absolute inset-0 z-0">
         <img 
-          src="https://www.indonesia.travel/contentassets/94a866f3e6244488b9c3641598ac0f8b/5-interesting-facts-about-pertamina-mandalika-international-street-circuit.jpg" 
+          src="https://images.pexels.com/photos/30013597/pexels-photo-30013597.jpeg?cs=srgb&dl=pexels-javaistan-30013597.jpg&fm=jpg" 
           alt="Racing Background" 
-          className="w-full h-full object-cover opacity-50 blur-[4px] scale-105" 
+          className="w-full h-full object-cover opacity-100 blur-[2px] scale-105" 
         />
         {/* Gradasi gelap agar form login tetap terbaca */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/70 to-[#050505]/40"></div>
       </div>
-
-      {/* TEKSTUR CARBON FIBRE DI ATAS GAMBAR */}
-      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-30 pointer-events-none z-0"></div>
 
       {/* 🟢 POP-UP LOGIN SUKSES */}
       {showSuccessPopup && (
@@ -137,7 +134,7 @@ export default function LoginPage() {
             disabled={loading}
             className={`w-full text-white font-black py-4 rounded-xl uppercase tracking-widest italic transition-all shadow-[0_0_15px_rgba(220,38,38,0.4)] ${loading ? 'bg-gray-800 text-gray-500 cursor-not-allowed shadow-none' : 'bg-red-600 hover:bg-white hover:text-black hover:scale-[1.02]'}`}
           >
-            {loading ? "Mengecek Paddock..." : "Sign In"}
+            {loading ? "Loading..." : "Sign In"}
           </button>
         </form>
 

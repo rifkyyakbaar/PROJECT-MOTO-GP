@@ -35,6 +35,14 @@ type CheckoutRequest struct {
 	PaymentMethod string `json:"payment_method"`
 }
 
+type PackageRequest struct {
+	EventID     int    `json:"event_id"`
+	Name        string `json:"name"`
+	Price       int    `json:"price"`
+	Stock       int    `json:"stock"`
+	Description string `json:"description"`
+}
+
 // =====================================================================
 // FUNGSI UTAMA (MAIN)
 // =====================================================================
@@ -64,8 +72,6 @@ func main() {
 	// 1. RUTE EVENTS
 	// -----------------------------------------------------------------
 	r.GET("/events", func(c *gin.Context) {
-		// ✅ FIX SUPER AMPUH: Kita tambahkan ::TEXT setelah end_date.
-		// Ini memaksa database mengubah tanggal jadi teks dulu agar tidak error saat digabung dengan teks kosong ''.
 		rows, err := db.Query("SELECT id, name, circuit, date, time, price, category, stock, COALESCE(country, 'id'), COALESCE(image, ''), COALESCE(description, ''), COALESCE(end_date::TEXT, '') FROM events ORDER BY date ASC")
 		if err != nil {
 			fmt.Println("❌ ERROR TARIK EVENTS:", err.Error())
@@ -117,7 +123,6 @@ func main() {
 			}
 		}
 
-		// ✅ FIX: Pastikan teks kosong diubah jadi NULL sebelum masuk ke database
 		var endDateDb interface{}
 		if endDate == "" {
 			endDateDb = nil
@@ -153,7 +158,6 @@ func main() {
 			}
 		}
 
-		// ✅ FIX: Pastikan teks kosong diubah jadi NULL sebelum masuk ke database
 		var endDateDb interface{}
 		if endDate == "" {
 			endDateDb = nil
@@ -172,7 +176,78 @@ func main() {
 	})
 
 	// -----------------------------------------------------------------
-	// 2. RUTE CHECKOUT & TRANSACTIONS
+	// 2. RUTE PACKAGES
+	// -----------------------------------------------------------------
+	r.GET("/packages", func(c *gin.Context) {
+		rows, err := db.Query("SELECT id, event_id, name, price, COALESCE(stock, 0), COALESCE(description, '') FROM packages ORDER BY id DESC")
+		if err != nil {
+			fmt.Println("❌ ERROR TARIK PACKAGES:", err.Error())
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		defer rows.Close()
+
+		var pkgs []map[string]interface{}
+		for rows.Next() {
+			var id, eventID, price, stock int
+			var name, description string
+
+			rows.Scan(&id, &eventID, &name, &price, &stock, &description)
+
+			pkgs = append(pkgs, map[string]interface{}{
+				"id": id, "event_id": eventID, "name": name,
+				"price": price, "stock": stock, "description": description,
+			})
+		}
+		c.JSON(200, pkgs)
+	})
+
+	r.POST("/packages", func(c *gin.Context) {
+		var req PackageRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			fmt.Println("❌ ERROR FORMAT JSON DARI WEB:", err)
+			c.JSON(400, gin.H{"error": "Format salah"})
+			return
+		}
+
+		_, err := db.Exec("INSERT INTO packages (event_id, name, price, stock, description) VALUES ($1, $2, $3, $4, $5)", req.EventID, req.Name, req.Price, req.Stock, req.Description)
+		if err != nil {
+			fmt.Println("❌ ERROR DATABASE SUPABASE (POST):", err)
+			c.JSON(500, gin.H{"error": "Gagal menyimpan package"})
+			return
+		}
+		c.JSON(200, gin.H{"status": "success"})
+	})
+
+	r.PUT("/packages/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		var req PackageRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": "Format salah"})
+			return
+		}
+
+		_, err := db.Exec("UPDATE packages SET event_id=$1, name=$2, price=$3, stock=$4, description=$5 WHERE id=$6", req.EventID, req.Name, req.Price, req.Stock, req.Description, id)
+		if err != nil {
+			fmt.Println("❌ ERROR DATABASE SUPABASE (PUT):", err)
+			c.JSON(500, gin.H{"error": "Gagal update package"})
+			return
+		}
+		c.JSON(200, gin.H{"status": "success"})
+	})
+
+	r.DELETE("/packages/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		_, err := db.Exec("DELETE FROM packages WHERE id = $1", id)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Gagal menghapus package"})
+			return
+		}
+		c.JSON(200, gin.H{"status": "success"})
+	})
+
+	// -----------------------------------------------------------------
+	// 3. RUTE CHECKOUT & TRANSACTIONS
 	// -----------------------------------------------------------------
 	r.POST("/checkout", func(c *gin.Context) {
 		var req CheckoutRequest
@@ -181,11 +256,17 @@ func main() {
 			return
 		}
 
+		pkgName := ""
+		if strings.Contains(req.PaymentMethod, "[PK: ") {
+			parts := strings.Split(req.PaymentMethod, "[PK: ")
+			pkgName = strings.TrimSuffix(parts[1], "]")
+		}
+
 		var price float64
-		err := db.QueryRow("SELECT price FROM events WHERE id = $1", req.EventID).Scan(&price)
+		err := db.QueryRow("SELECT price FROM packages WHERE event_id = $1 AND name = $2", req.EventID, pkgName).Scan(&price)
+
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"message": "Event tidak ditemukan"})
-			return
+			db.QueryRow("SELECT price FROM events WHERE id = $1", req.EventID).Scan(&price)
 		}
 
 		totalPrice := price * float64(req.Quantity)
@@ -210,9 +291,15 @@ func main() {
 		id := c.Param("id")
 
 		var eventID, quantity int
-		err := db.QueryRow("SELECT event_id, quantity FROM transactions WHERE id = $1", id).Scan(&eventID, &quantity)
+		var paymentMethod string
+		err := db.QueryRow("SELECT event_id, quantity, payment_method FROM transactions WHERE id = $1", id).Scan(&eventID, &quantity, &paymentMethod)
+
 		if err == nil {
-			db.Exec("UPDATE events SET stock = stock - $1 WHERE id = $2", quantity, eventID)
+			if strings.Contains(paymentMethod, "[PK: ") {
+				parts := strings.Split(paymentMethod, "[PK: ")
+				pkgName := strings.TrimSuffix(parts[1], "]")
+				db.Exec("UPDATE packages SET stock = stock - $1 WHERE event_id = $2 AND name = $3", quantity, eventID, pkgName)
+			}
 		}
 
 		db.Exec("UPDATE transactions SET status = 'PAID' WHERE id = $1", id)
@@ -238,16 +325,6 @@ func main() {
 			}
 		}
 		c.JSON(500, gin.H{"error": "Gagal menyimpan bukti"})
-	})
-
-	r.DELETE("/transactions/:id", func(c *gin.Context) {
-		id := c.Param("id")
-		_, err := db.Exec("DELETE FROM transactions WHERE id = $1", id)
-		if err != nil {
-			c.JSON(500, gin.H{"error": "Gagal menghapus transaksi"})
-			return
-		}
-		c.JSON(200, gin.H{"status": "success"})
 	})
 
 	r.GET("/transactions", func(c *gin.Context) {
@@ -286,9 +363,14 @@ func main() {
 		c.JSON(200, gin.H{"status": "success", "total_revenue": totalRevenue, "total_tickets_sold": totalTicketsSold, "history": transactions})
 	})
 
+	// -----------------------------------------------------------------
+	// ✅ FIX: RUTE PROFIL USER (Tambahkan t.payment_method)
+	// -----------------------------------------------------------------
 	r.GET("/my-transactions", func(c *gin.Context) {
 		username := c.Query("username")
-		rows, err := db.Query(`SELECT t.id, e.name as event_name, COALESCE(e.image, ''), t.status, t.quantity, t.total_price, t.created_at FROM transactions t JOIN events e ON t.event_id = e.id WHERE t.user_name = $1 ORDER BY t.created_at DESC`, username)
+
+		// ✅ FIX: Tambahkan COALESCE(t.payment_method, '') di dalam query SELECT
+		rows, err := db.Query(`SELECT t.id, e.name as event_name, COALESCE(e.image, ''), t.status, t.quantity, t.total_price, t.created_at, COALESCE(t.payment_method, '') FROM transactions t JOIN events e ON t.event_id = e.id WHERE t.user_name = $1 ORDER BY t.created_at DESC`, username)
 
 		if err != nil {
 			fmt.Println("❌ ERROR TARIK DATA PROFIL:", err.Error())
@@ -301,19 +383,23 @@ func main() {
 		for rows.Next() {
 			var id, quantity int
 			var totalPrice int64
-			var eventName, image, status, createdAt string
-			rows.Scan(&id, &eventName, &image, &status, &quantity, &totalPrice, &createdAt)
+			var eventName, image, status, createdAt, paymentMethod string // ✅ FIX: Siapkan wadah paymentMethod
+
+			// ✅ FIX: Scan paymentMethod di akhir
+			rows.Scan(&id, &eventName, &image, &status, &quantity, &totalPrice, &createdAt, &paymentMethod)
+
 			myTx = append(myTx, map[string]interface{}{
 				"id": id, "event_name": eventName, "image": image,
 				"status": status, "quantity": quantity, "total_price": totalPrice,
-				"booking_date": createdAt,
+				"booking_date":   createdAt,
+				"payment_method": paymentMethod, // ✅ FIX: Kirim ke Frontend
 			})
 		}
 		c.JSON(200, myTx)
 	})
 
 	// -----------------------------------------------------------------
-	// 3. RUTE USERS & AUTH
+	// 4. RUTE USERS & AUTH
 	// -----------------------------------------------------------------
 	r.GET("/users", func(c *gin.Context) {
 		rows, err := db.Query("SELECT id, username FROM users WHERE role = 'user' ORDER BY id DESC")
@@ -339,9 +425,10 @@ func main() {
 			return
 		}
 
-		_, err := db.Exec("INSERT INTO users (username, password, role) VALUES ($1, $2, 'user')", req.Username, req.Password)
+		// ✅ FIX: Email harus disimpan saat mendaftar agar histori masuk email
+		_, err := db.Exec("INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, 'user')", req.Username, req.Email, req.Password)
 		if err != nil {
-			c.JSON(409, gin.H{"error": "Username sudah terdaftar!"})
+			c.JSON(409, gin.H{"error": "Username/Email sudah terdaftar!"})
 			return
 		}
 		c.JSON(200, gin.H{"status": "success"})

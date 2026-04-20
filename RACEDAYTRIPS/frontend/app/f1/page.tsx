@@ -21,10 +21,18 @@ export default function F1Page() {
   const getDay = (dateStr: string) => new Date(dateStr).toLocaleDateString('id-ID', { day: '2-digit' });
   const getYear = (dateStr: string) => new Date(dateStr).toLocaleDateString('id-ID', { year: 'numeric' });
 
+  const getFlagCode = (name: string) => {
+    if (!name) return "un";
+    const n = name.toLowerCase().trim();
+    const map: Record<string, string> = {
+      "indonesia": "id", "malaysia": "my", "japan": "jp", "spain": "es", "italy": "it", "france": "fr", "germany": "de", "great britain": "gb", "uk": "gb", "usa": "us", "australia": "au", "netherlands": "nl", "singapore": "sg", "qatar": "qa", "portugal": "pt", "argentina": "ar", "austria": "at", "thailand": "th", "india": "in", "san marino": "sm", "monaco": "mc", "saudi arabia": "sa", "bahrain": "bh", "china": "cn", "brazil": "br", "mexico": "mx", "canada": "ca", "belgium": "be", "hungary": "hu", "azerbaijan": "az", "uae": "ae"
+    };
+    return map[n] || "un";
+  };
+
   return (
     <div className="min-h-screen text-white pt-24 pb-12 px-6 relative">
       
-      {/* 🔴 NAVBAR & TOMBOL BACK 🔴 */}
       <nav className="absolute top-0 left-0 w-full p-6 md:px-12 flex justify-between items-center z-50">
         <Link href="/" className="text-2xl font-black italic tracking-tighter text-white hover:text-red-600 transition-colors drop-shadow-md">
           RACEDAY<span className="text-red-600">TRIPS</span>
@@ -34,8 +42,7 @@ export default function F1Page() {
         </Link>
       </nav>
 
-      {/* 🖼️ BACKGROUND FULLSCREEN */}
-      <div className="fixed inset-0 z-0">
+      <div className="fixed inset-0 z-0 pointer-events-none">
         <img src="/images/f1.jpg" alt="F1 Background" className="w-full h-full object-cover opacity-40 blur-[2px]" />
         <div className="absolute inset-0 bg-gradient-to-b from-[#050505]/70 via-[#050505]/90 to-[#050505]"></div>
       </div>
@@ -49,15 +56,13 @@ export default function F1Page() {
         ) : events.length > 0 ? (
           <div className="space-y-6">
             {events.map((event) => {
-              const countryCode = event.country ? event.country.substring(0, 2).toLowerCase() : "id";
+              const flag = getFlagCode(event.country);
               const endDateObj = event.end_date && event.end_date.trim() !== "" ? new Date(event.end_date) : null;
 
               return (
-                <Link href={`/event/${event.id}`} key={event.id} className="block group">
-                  {/* 1. Pastikan parent ditambahkan "relative" dan background dasar diganti jadi pekat */}
+                <Link href={`/event/${event.id}/packages`} key={event.id} className="block group">
                   <div className="relative rounded-2xl flex flex-col md:flex-row overflow-hidden border border-gray-800/60 hover:border-red-600 transition-all shadow-2xl transform hover:-translate-y-1 bg-[#111]">
                     
-                    {/* 🖼️ 2. INI KODE BARUNYA: BACKGROUND GAMBAR EVENT DENGAN EFEK FADE */}
                     {event.image && (
                       <div className="absolute inset-0 z-0">
                         <img 
@@ -65,12 +70,10 @@ export default function F1Page() {
                           alt={event.name} 
                           className="w-full h-full object-cover opacity-30 group-hover:opacity-60 transition-opacity duration-500 grayscale group-hover:grayscale-0" 
                         />
-                        {/* Gradien hitam agar teks kiri & kanan tetap terbaca jelas */}
                         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-black/90"></div>
                       </div>
                     )}
 
-                    {/* 3. KIRI (Tanggal) -> Ditambah "relative z-10" dan "backdrop-blur-sm" */}
                     <div className="relative z-10 bg-black/50 backdrop-blur-sm md:w-36 flex flex-col items-center justify-center p-4 border-b md:border-b-0 md:border-r border-gray-800/60 shrink-0">
                       <span className="text-red-600 font-black tracking-widest">{getMonth(event.date)}</span>
                       <span className="text-4xl md:text-5xl font-black text-white my-1 tracking-tighter">
@@ -80,7 +83,6 @@ export default function F1Page() {
                       <span className="text-gray-500 text-sm font-bold">{getYear(event.date)}</span>
                     </div>
 
-                    {/* 4. TENGAH (Info Event) -> Ditambah "relative z-10" dan drop-shadow */}
                     <div className="relative z-10 flex-1 p-6 flex flex-col justify-center">
                       <p className={`text-xs font-bold mb-2 uppercase flex items-center ${event.stock > 10 ? 'text-green-500' : 'text-orange-500'}`}>
                         <span className="w-2 h-2 rounded-full mr-2 bg-current animate-pulse"></span>
@@ -89,24 +91,30 @@ export default function F1Page() {
                       <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tight drop-shadow-lg">{event.name}</h2>
                       <p className="text-gray-300 font-medium text-sm flex items-center gap-2 drop-shadow-md">
                         📍 {event.circuit} 
-                        <img 
-                          src={`https://flagcdn.com/w20/${countryCode}.png`} 
-                          alt="flag" 
-                          className="h-3 w-auto opacity-80 rounded-[2px]" 
-                          onError={(e) => e.currentTarget.style.display = 'none'} 
-                        />
                       </p>
                     </div>
 
-                    {/* 5. KANAN (Harga) -> Ditambah "relative z-10" dan "backdrop-blur-sm" */}
-                    <div className="relative z-10 md:w-64 p-6 flex flex-col justify-center items-end border-t md:border-t-0 md:border-l border-gray-800/60 bg-black/40 backdrop-blur-sm group-hover:bg-black/60 transition-colors shrink-0">
-                      <p className="text-gray-500 text-xs font-bold tracking-widest mb-1">TICKET PRICE</p>
-                      <p className="text-3xl font-black text-white mb-4 drop-shadow-lg">
-                        $ {(event.price / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <div className="relative z-10 md:w-64 p-6 flex flex-col justify-center items-end border-t md:border-t-0 md:border-l border-gray-800/60 bg-black/40 backdrop-blur-sm group-hover:bg-black/60 transition-colors shrink-0 overflow-hidden">
+                      
+                      <div 
+                        className="absolute inset-0 z-0 opacity-20 group-hover:opacity-40 transition-opacity duration-500 blur-[1px]"
+                        style={{ 
+                          backgroundImage: `url('https://flagcdn.com/w320/${flag}.png')`, 
+                          backgroundSize: 'cover', 
+                          backgroundPosition: 'center',
+                          maskImage: 'linear-gradient(to right, transparent, black 80%)',
+                          WebkitMaskImage: 'linear-gradient(to right, transparent, black 80%)'
+                        }}
+                      ></div>
+                      
+                      <p className="relative z-10 text-gray-400 text-xs font-bold tracking-widest mb-4 drop-shadow-md uppercase text-right w-full border-b border-gray-700/50 pb-2">
+                        {event.country || "International"}
                       </p>
-                      <button className="w-full bg-red-600 hover:bg-white hover:text-black text-white font-black py-3 px-4 rounded-lg italic uppercase transition-all shadow-[0_0_15px_rgba(220,38,38,0.4)]">
-                        Get Your Tickets
+
+                      <button className="relative z-10 w-full bg-red-600 hover:bg-white hover:text-black text-white font-black py-4 px-4 rounded-lg italic uppercase transition-all shadow-[0_0_15px_rgba(220,38,38,0.4)]">
+                        Select Packages
                       </button>
+
                     </div>
 
                   </div>
@@ -115,7 +123,10 @@ export default function F1Page() {
             })}
           </div>
         ) : (
-          <p className="text-gray-500 italic">No F1 schedule available yet</p>
+          <div className="text-center py-20 bg-[#111] rounded-3xl border border-gray-800">
+            <p className="text-6xl mb-4">🏎️</p>
+            <p className="text-gray-400 italic">No F1 schedule available yet.</p>
+          </div>
         )}
       </div>
     </div>

@@ -17,6 +17,7 @@ export default function Home() {
   // 🚀 3. STATE DATA & LOADING
   const [latestEvents, setLatestEvents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState(""); 
 
   // 👤 4. STATE USER (Deteksi Login)
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -31,28 +32,24 @@ export default function Home() {
       setUserRole(localStorage.getItem("userRole") || "user");
     }
 
-    // Mengambil Jadwal Terdekat (DENGAN LOGIKA FILTER TANGGAL & PENGAMAN)
+    // Mengambil Jadwal Terdekat
     fetch("http://localhost:8080/events")
       .then((res) => res.json())
       .then((data) => {
-        // 🚨 SUNTIKAN ANTI-ERROR: Cegah layar putih jika database kosong
         if (!Array.isArray(data)) {
           setLatestEvents([]);
           setIsLoading(false);
           return;
         }
 
-        // 1. Ambil tanggal hari ini (jam diset ke 00:00:00)
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // 2. Buang event yang tanggalnya sudah lewat
         const validUpcomingEvents = data.filter((event: any) => {
           const eventDate = new Date(event.date);
           return eventDate >= today;
         });
 
-        // 3. Baru ambil 4 jadwal paling atas dari saringan tersebut
         setLatestEvents(validUpcomingEvents.slice(0, 4));
         setIsLoading(false);
       })
@@ -79,7 +76,7 @@ export default function Home() {
     setUserRole("");
     setIsProfileMenuOpen(false);
     setIsMobileMenuOpen(false);
-    router.refresh(); // Segarkan halaman
+    router.refresh(); 
   };
 
   const categories = [
@@ -203,9 +200,21 @@ export default function Home() {
           <div className="flex flex-col md:flex-row items-center bg-transparent md:bg-white rounded-3xl md:rounded-full p-2 max-w-3xl mx-auto shadow-2xl mt-8 md:mt-12 space-y-3 md:space-y-0">
             <div className="flex w-full bg-white rounded-full p-1 items-center">
               <span className="pl-6 text-gray-400 text-xl hidden md:block">🔍</span>
-              <input type="text" placeholder="Search circuit, event name, or category..." className="w-full py-4 px-6 md:px-5 rounded-full text-black text-lg focus:outline-none placeholder:text-gray-400" />
+              <input 
+                type="text" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && searchQuery.trim() !== "" && router.push(`/search?q=${searchQuery}`)}
+                placeholder="Search circuit, event name, or category..." 
+                className="w-full py-4 px-6 md:px-5 rounded-full text-black text-lg focus:outline-none placeholder:text-gray-400" 
+              />
             </div>
-            <button className="w-full md:w-auto bg-red-600 hover:bg-black text-white font-extrabold py-4 px-12 rounded-full transition-all text-lg uppercase tracking-tight">Search</button>
+            <button 
+              onClick={() => searchQuery.trim() !== "" && router.push(`/search?q=${searchQuery}`)}
+              className="w-full md:w-auto bg-red-600 hover:bg-black text-white font-extrabold py-4 px-12 rounded-full transition-all text-lg uppercase tracking-tight"
+            >
+              Search
+            </button>
           </div>
         </div>
 
@@ -219,7 +228,7 @@ export default function Home() {
       {/* 🚀 UPCOMING RACES SECTION */}
       <div className="bg-[#02050d] py-20 relative z-20 border-b border-gray-900">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="flex justify-between items-end mb-10"><h2 className="text-3xl md:text-4xl font-extrabold uppercase tracking-tight">🏁 Upcoming <span className="text-red-600">Races</span></h2></div>
+          <div className="flex justify-center items-end mb-10"><h2 className="text-3xl md:text-4xl font-extrabold uppercase tracking-tight">🏁 Upcoming <span className="text-red-600">Races</span></h2></div>
 
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -227,37 +236,44 @@ export default function Home() {
                 <div key={skeleton} className="bg-[#0a0a0a] border border-gray-800 rounded-2xl overflow-hidden h-[350px] animate-pulse flex flex-col"><div className="h-48 bg-gray-800/50 w-full"></div><div className="p-5 space-y-4"><div className="h-4 bg-gray-800 rounded w-1/3"></div><div className="h-6 bg-gray-700 rounded w-3/4"></div><div className="h-4 bg-gray-800 rounded w-1/2"></div></div></div>
               ))}
             </div>
-          ) : latestEvents.length > 0 ? (
+          ) : (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               
-              {/* 🔄 MAPPING EVENT DENGAN BADGE BENDERA */}
               {latestEvents.map((event) => {
-                // Konversi nama negara ke kode 2 huruf (Contoh: "Indonesia" -> "id", "Japan" -> "jp")
-                const countryCode = event.country ? event.country.substring(0, 2).toLowerCase() : "id";
+                // ✅ FIX: Menggunakan Kamus Pintar
+                const getFlagCode = (countryName: string) => {
+                  if (!countryName) return "un"; 
+                  const name = countryName.toLowerCase().trim();
+                  const map: Record<string, string> = {
+                    "indonesia": "id", "malaysia": "my", "japan": "jp", "spain": "es", 
+                    "italy": "it", "france": "fr", "germany": "de", "great britain": "gb", "uk": "gb", 
+                    "usa": "us", "australia": "au", "netherlands": "nl", "singapore": "sg",
+                    "qatar": "qa", "portugal": "pt", "argentina": "ar", "austria": "at",
+                    "thailand": "th", "india": "in", "san marino": "sm", "monaco": "mc",
+                    "saudi arabia": "sa", "bahrain": "bh", "china": "cn", "brazil": "br",
+                    "mexico": "mx", "canada": "ca", "belgium": "be", "hungary": "hu",
+                    "azerbaijan": "az", "uae": "ae", "united arab emirates": "ae"
+                  };
+                  return map[name] || "un"; 
+                };
+
+                const countryCode = getFlagCode(event.country);
 
                 return (
-                  <Link href={`/event/${event.id}`} key={event.id} className="group">
+                  <Link href={`/event/${event.id}/packages`} key={event.id} className="group">
                     <div className="bg-[#0a0a0a] border border-gray-800 rounded-2xl overflow-hidden hover:border-red-600 transition-all hover:-translate-y-2 shadow-lg h-full flex flex-col">
                       
-                      {/* AREA GAMBAR */}
                       <div className="h-48 relative overflow-hidden bg-gray-900 shrink-0">
                         {event.image ? ( <img src={event.image} alt={event.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"/> ) : ( <div className="w-full h-full flex items-center justify-center text-gray-700 font-bold">NO IMAGE</div> )}
                         
                         <div className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-md uppercase shadow-md">{event.category}</div>
                         
-                        {/* 🚩 BADGE TANGGAL DENGAN BACKGROUND BENDERA (DI ATAS GAMBAR) */}
                         <div className="absolute bottom-3 right-3 w-16 h-16 rounded-xl flex flex-col items-center justify-center overflow-hidden border border-gray-800 shadow-2xl group-hover:scale-110 transition-transform duration-500">
-                          {/* Layer Gambar Bendera */}
-                          <div 
-                            className="absolute inset-0 z-0 opacity-60 blur-[1px]" 
-                            style={{ backgroundImage: `url('https://flagcdn.com/w80/${countryCode}.png')`, backgroundSize: 'cover', backgroundPosition: 'center' }}
-                          ></div>
-                          {/* Overlay Hitam untuk Kontras */}
+                          <div className="absolute inset-0 z-0 opacity-60 blur-[1px]" style={{ backgroundImage: `url('https://flagcdn.com/w80/${countryCode}.png')`, backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
                           <div className="absolute inset-0 bg-black/40 z-0"></div>
                           
-                          {/* Text Tanggal */}
                           <span className="relative z-10 text-red-500 font-black text-[10px] uppercase leading-none tracking-widest">
-                            {new Date(event.date).toLocaleString('id-ID', { month: 'short' })}
+                            {new Date(event.date).toLocaleString('en-US', { month: 'short' })}
                           </span>
                           <span className="relative z-10 text-white font-black text-2xl leading-none mt-0.5">
                             {new Date(event.date).getDate()}
@@ -265,15 +281,15 @@ export default function Home() {
                         </div>
                       </div>
                       
-                      {/* AREA INFO TEKS */}
                       <div className="p-5 flex flex-col flex-grow">
                         <h3 className="text-xl font-bold text-white mb-2 leading-tight group-hover:text-red-500 transition-colors">{event.name}</h3>
                         <p className="text-gray-400 text-sm mb-4">📍 {event.circuit}</p>
                         
                         <div className="mt-auto pt-4 border-t border-gray-800 flex justify-between items-center">
-                          <span className="text-white font-black text-lg">Rp {event.price.toLocaleString('id-ID')}</span>
+                          <span className="text-white font-black text-lg">
+                            $ {(event.price / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
                           
-                          {/* Nama Negara Kecil di Kanan Bawah */}
                           <span className="text-[10px] font-bold text-gray-400 bg-gray-900 px-2 py-1 rounded-md border border-gray-800 uppercase tracking-widest">
                             {event.country ? event.country : "INTL"}
                           </span>
@@ -284,8 +300,18 @@ export default function Home() {
                 );
               })}
 
+              {Array.from({ length: Math.max(0, 4 - latestEvents.length) }).map((_, index) => (
+                <div key={`empty-${index}`} className="bg-[#050505] border-2 border-gray-800/50 border-dashed rounded-2xl h-full min-h-[350px] flex flex-col items-center justify-center p-6 text-center group cursor-default">
+                  <div className="w-16 h-16 rounded-full bg-gray-900 border border-gray-800 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-500 shadow-inner">
+                  <span className="text-3xl font-black opacity-60 text-gray-400">!</span>
+                </div>
+                  <h3 className="text-lg font-black text-gray-500 uppercase tracking-widest mb-1">Coming Soon</h3>
+                  <p className="text-xs text-gray-600 font-bold uppercase tracking-wider">More schedules to be announced</p>
+                </div>
+              ))}
+
             </div>
-          ) : ( <p className="text-gray-500 text-center italic py-10">he race schedule is being prepared by the Admin.</p> )}
+          )}
         </div>
       </div>
 
@@ -313,19 +339,22 @@ export default function Home() {
       </div>
 
       {/* 🌐 FOOTER SECTION */}
-      <footer className="bg-[#02050d] border-t border-gray-800 py-16 md:py-20 px-6 relative z-20">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 text-gray-400 text-center md:text-left">
+      <footer className="bg-[#02050d] border-t border-gray-800 py-16 md:py-20 px-6 md:px-16 relative z-20">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 text-gray-400 text-center md:text-left">
           
           <div className="space-y-4">
             <div className="text-3xl font-black italic tracking-tighter text-white">RACEDAY<span className="text-red-600">TRIPS</span></div>
             <p className="text-sm">Your premium gateway to the world's most exciting motorsport events. Experience the speed live.</p>
           </div>
           
-          <div className="space-y-3">
+          <div className="space-y-3"> 
             <h4 className="font-bold text-white uppercase text-sm tracking-wider mb-4">Contact Us</h4>
-            <p className="text-sm">Email: raceday.trips@gmail.com</p>
-            <p className="text-sm">Phone: +62 812 3456 7890</p>
-            <p className="text-sm">Mataram, Lombok - Indonesia 🇮🇩</p>
+            <p className="text-sm hover:text-red-500 transition-colors cursor-pointer">Email: raceday.trips@gmail.com</p>
+            <p className="text-sm hover:text-red-500 transition-colors cursor-pointer">Phone: +62 812 3456 7890</p>
+            <div className="pt-2">
+              <p className="text-sm">Mandalika, Lombok - Indonesia 🇮🇩</p>
+              <p className="text-sm text-gray-500 mt-1">Office: Mandalika, Lombok</p>
+            </div>
           </div>
           
           <div className="space-y-3 flex flex-col items-center md:items-start">
@@ -337,20 +366,11 @@ export default function Home() {
             ))}
           </div>
           
-          {/* ✅ BAGIAN MEDIA SOSIAL YANG DIPERBARUI */}
           <div className="space-y-4 flex flex-col items-center md:items-start">
             <h4 className="font-bold text-white uppercase text-sm tracking-wider mb-4">Follow The Speed</h4>
             
             <div className="flex space-x-6 items-center">
-              {/* 1. X / Twitter (Disabled / Segera Hadir) */}
-              <span 
-                title="X/Twitter Segera Hadir!" 
-                className="text-2xl text-gray-700 cursor-not-allowed"
-              >
-                𝕏
-              </span>
-              
-              {/* 2. Instagram (@racedaytrips) */}
+              <span title="X/Twitter Segera Hadir!" className="text-2xl text-gray-700 cursor-not-allowed">𝕏</span>
               <a href="https://instagram.com/racedaytrips" target="_blank" rel="noreferrer" className="hover:text-red-600 transition-colors" title="@racedaytrips di Instagram">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
@@ -358,8 +378,6 @@ export default function Home() {
                   <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
                 </svg>
               </a>
-
-              {/* 3. Threads (@racedaytrips) */}
               <a href="https://threads.net/@racedaytrips" target="_blank" rel="noreferrer" className="hover:text-red-600 transition-colors" title="@racedaytrips di Threads">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M14 12a2 2 0 1 0-4 0 2 2 0 0 0 4 0z"/>
@@ -368,18 +386,14 @@ export default function Home() {
                 </svg>
               </a>
             </div>
-
-            {/* Opsional: Menampilkan handle teks di bawah ikon agar user langsung tahu namanya */}
             <p className="text-xs text-gray-500 font-medium tracking-wide mt-2">@racedaytrips</p>
           </div>
-
         </div>
         
         <div className="max-w-7xl mx-auto text-center mt-16 pt-8 border-t border-gray-900 text-xs text-gray-600">
           &copy; 2026 RACEDAYTRIPS Platform. All Rights Reserved. Official Ticket Partner.
         </div>
       </footer>
-
-      </main>
+    </main>
   );
 }
