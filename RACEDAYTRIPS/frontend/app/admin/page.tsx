@@ -47,7 +47,7 @@ export default function AdminDashboard() {
     fetch("http://localhost:8080/packages")
       .then((res) => res.json())
       .then((data) => { if (Array.isArray(data)) setPackages(data); })
-      .catch((err) => console.error("Endpoint /packages belum siap di backend."));
+      .catch((err) => console.error("Endpoint /packages are not ready on the backend yet."));
   };
 
   const fetchTransactions = () => {
@@ -264,8 +264,9 @@ export default function AdminDashboard() {
                       <option value="Belgium">Belgium</option>
                       <option value="Brazil">Brazil</option>
                       <option value="Canada">Canada</option>
+                      <option value="Catalonia">Catalonia</option>
                       <option value="China">China</option>
-                      <option value="Czech Republic">Czech Republic</option>
+                      <option value="Czechia">Czechia</option>
                       <option value="France">France</option>
                       <option value="Germany">Germany</option>
                       <option value="Hungary">Hungary</option>
@@ -286,6 +287,7 @@ export default function AdminDashboard() {
                       <option value="UAE">UAE</option>
                       <option value="UK">UK</option>
                       <option value="USA">USA</option>
+                      <option value="Valencia">Valencia</option>
                     </select>
                   </div>
 

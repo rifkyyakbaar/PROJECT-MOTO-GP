@@ -69,7 +69,7 @@ export default function RegisterPage() {
             <label className="block text-gray-400 text-sm font-bold mb-2 uppercase tracking-wider">Username</label>
             <input 
               type="text" required value={username} onChange={(e) => setUsername(e.target.value)}
-              placeholder="Racer123" 
+              placeholder="RaceDayTrips2026" 
               className="w-full bg-[#111] border border-gray-800 text-white rounded-xl py-3.5 px-4 focus:outline-none focus:border-red-600 transition-colors placeholder:text-gray-600"
             />
           </div>
@@ -78,7 +78,7 @@ export default function RegisterPage() {
             <label className="block text-gray-400 text-sm font-bold mb-2 uppercase tracking-wider">Email Address</label>
             <input 
               type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-              placeholder="paddock@example.com" 
+              placeholder="racedaytrips@example.com" 
               className="w-full bg-[#111] border border-gray-800 text-white rounded-xl py-3.5 px-4 focus:outline-none focus:border-red-600 transition-colors placeholder:text-gray-600"
             />
           </div>

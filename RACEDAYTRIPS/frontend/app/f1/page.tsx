@@ -25,7 +25,18 @@ export default function F1Page() {
     if (!name) return "un";
     const n = name.toLowerCase().trim();
     const map: Record<string, string> = {
-      "indonesia": "id", "malaysia": "my", "japan": "jp", "spain": "es", "italy": "it", "france": "fr", "germany": "de", "great britain": "gb", "uk": "gb", "usa": "us", "australia": "au", "netherlands": "nl", "singapore": "sg", "qatar": "qa", "portugal": "pt", "argentina": "ar", "austria": "at", "thailand": "th", "india": "in", "san marino": "sm", "monaco": "mc", "saudi arabia": "sa", "bahrain": "bh", "china": "cn", "brazil": "br", "mexico": "mx", "canada": "ca", "belgium": "be", "hungary": "hu", "azerbaijan": "az", "uae": "ae"
+      "indonesia": "id", "malaysia": "my", "japan": "jp", "spain": "es", "italy": "it", 
+      "france": "fr", "germany": "de", "great britain": "gb", "uk": "gb", "usa": "us", 
+      "australia": "au", "netherlands": "nl", "singapore": "sg", "qatar": "qa", 
+      "portugal": "pt", "argentina": "ar", "austria": "at", "thailand": "th", 
+      "india": "in", "san marino": "sm", "monaco": "mc", "saudi arabia": "sa", 
+      "bahrain": "bh", "china": "cn", "brazil": "br", "mexico": "mx", "canada": "ca", 
+      "belgium": "be", "hungary": "hu", "azerbaijan": "az", "uae": "ae",
+      // ✅ TAMBAHAN NEGARA/REGION BARU:
+      "catalonia": "es-ct",
+      "valencia": "es-vc",
+      "czechia": "cz",
+      "czech republic": "cz"
     };
     return map[n] || "un";
   };

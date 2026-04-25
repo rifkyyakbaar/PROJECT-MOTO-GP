@@ -13,7 +13,9 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // =====================================================================
@@ -48,7 +50,23 @@ type PackageRequest struct {
 // =====================================================================
 
 func main() {
-	connStr := "postgresql://postgres:%40RaceDayTrips@db.txcphmqixwjfpdkvnecd.supabase.co:5432/postgres"
+	// Muat file .env jika ada
+	godotenv.Load()
+
+	connStr := os.Getenv("DATABASE_URL")
+	if connStr == "" {
+		log.Fatal("❌ DATABASE_URL belum diatur di file .env")
+	}
+
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000"
+	}
+
+	baseURL := os.Getenv("BASE_URL")
+	if baseURL == "" {
+		baseURL = "http://localhost:8080"
+	}
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -60,7 +78,7 @@ func main() {
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowOrigins:     []string{frontendURL},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
 		AllowCredentials: true,
@@ -74,7 +92,7 @@ func main() {
 	r.GET("/events", func(c *gin.Context) {
 		rows, err := db.Query("SELECT id, name, circuit, date, time, price, category, stock, COALESCE(country, 'id'), COALESCE(image, ''), COALESCE(description, ''), COALESCE(end_date::TEXT, '') FROM events ORDER BY date ASC")
 		if err != nil {
-			fmt.Println("❌ ERROR TARIK EVENTS:", err.Error())
+			fmt.Println("❌ ERROR RETRIEVING EVENTS:", err.Error())
 			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
@@ -87,7 +105,7 @@ func main() {
 
 			errScan := rows.Scan(&id, &name, &circuit, &date, &time, &price, &category, &stock, &country, &image, &description, &endDate)
 			if errScan != nil {
-				fmt.Println("❌ ERROR SCAN EVENT:", errScan.Error())
+				fmt.Println("❌ ERROR SCANNING EVENT:", errScan.Error())
 				continue
 			}
 
@@ -118,7 +136,7 @@ func main() {
 			if ext == ".jpg" || ext == ".jpeg" || ext == ".png" {
 				filename := fmt.Sprintf("%d_%s", time.Now().Unix(), filepath.Base(file.Filename))
 				if c.SaveUploadedFile(file, "./uploads/"+filename) == nil {
-					imageURL = "http://localhost:8080/uploads/" + filename
+					imageURL = baseURL + "/uploads/" + filename
 				}
 			}
 		}
@@ -153,7 +171,7 @@ func main() {
 			if ext == ".jpg" || ext == ".jpeg" || ext == ".png" {
 				filename := fmt.Sprintf("%d_%s", time.Now().Unix(), filepath.Base(file.Filename))
 				if c.SaveUploadedFile(file, "./uploads/"+filename) == nil {
-					imageURL = "http://localhost:8080/uploads/" + filename
+					imageURL = baseURL + "/uploads/" + filename
 				}
 			}
 		}
@@ -181,7 +199,7 @@ func main() {
 	r.GET("/packages", func(c *gin.Context) {
 		rows, err := db.Query("SELECT id, event_id, name, price, COALESCE(stock, 0), COALESCE(description, '') FROM packages ORDER BY id DESC")
 		if err != nil {
-			fmt.Println("❌ ERROR TARIK PACKAGES:", err.Error())
+			fmt.Println("❌ ERROR RETRIEVING PACKAGES:", err.Error())
 			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
@@ -206,14 +224,14 @@ func main() {
 		var req PackageRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			fmt.Println("❌ ERROR FORMAT JSON DARI WEB:", err)
-			c.JSON(400, gin.H{"error": "Format salah"})
+			c.JSON(400, gin.H{"error": "Invalid format"})
 			return
 		}
 
 		_, err := db.Exec("INSERT INTO packages (event_id, name, price, stock, description) VALUES ($1, $2, $3, $4, $5)", req.EventID, req.Name, req.Price, req.Stock, req.Description)
 		if err != nil {
 			fmt.Println("❌ ERROR DATABASE SUPABASE (POST):", err)
-			c.JSON(500, gin.H{"error": "Gagal menyimpan package"})
+			c.JSON(500, gin.H{"error": "Failed to save the package"})
 			return
 		}
 		c.JSON(200, gin.H{"status": "success"})
@@ -223,14 +241,14 @@ func main() {
 		id := c.Param("id")
 		var req PackageRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(400, gin.H{"error": "Format salah"})
+			c.JSON(400, gin.H{"error": "Invalid format"})
 			return
 		}
 
 		_, err := db.Exec("UPDATE packages SET event_id=$1, name=$2, price=$3, stock=$4, description=$5 WHERE id=$6", req.EventID, req.Name, req.Price, req.Stock, req.Description, id)
 		if err != nil {
 			fmt.Println("❌ ERROR DATABASE SUPABASE (PUT):", err)
-			c.JSON(500, gin.H{"error": "Gagal update package"})
+			c.JSON(500, gin.H{"error": "Failed to update the package"})
 			return
 		}
 		c.JSON(200, gin.H{"status": "success"})
@@ -240,7 +258,7 @@ func main() {
 		id := c.Param("id")
 		_, err := db.Exec("DELETE FROM packages WHERE id = $1", id)
 		if err != nil {
-			c.JSON(500, gin.H{"error": "Gagal menghapus package"})
+			c.JSON(500, gin.H{"error": "Failed to delete the package"})
 			return
 		}
 		c.JSON(200, gin.H{"status": "success"})
@@ -252,7 +270,7 @@ func main() {
 	r.POST("/checkout", func(c *gin.Context) {
 		var req CheckoutRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"message": "Data tidak valid"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid data"})
 			return
 		}
 
@@ -280,11 +298,11 @@ func main() {
 
 		if err != nil {
 			log.Println("Error insert DB:", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"message": "Gagal menyimpan pesanan ke database"})
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to save the order to the database"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Sukses"})
+		c.JSON(http.StatusOK, gin.H{"message": "Success"})
 	})
 
 	r.PUT("/transactions/:id/lunas", func(c *gin.Context) {
@@ -310,7 +328,7 @@ func main() {
 		id := c.Param("id")
 		file, err := c.FormFile("proof")
 		if err != nil {
-			c.JSON(400, gin.H{"error": "File tidak ditemukan"})
+			c.JSON(400, gin.H{"error": "File not found"})
 			return
 		}
 
@@ -318,20 +336,20 @@ func main() {
 		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".pdf" {
 			filename := fmt.Sprintf("proof_%d_%s", time.Now().Unix(), filepath.Base(file.Filename))
 			if c.SaveUploadedFile(file, "./uploads/"+filename) == nil {
-				proofURL := "http://localhost:8080/uploads/" + filename
+				proofURL := baseURL + "/uploads/" + filename
 				db.Exec("UPDATE transactions SET proof_image = $1 WHERE id = $2", proofURL, id)
 				c.JSON(200, gin.H{"status": "success", "proof_url": proofURL})
 				return
 			}
 		}
-		c.JSON(500, gin.H{"error": "Gagal menyimpan bukti"})
+		c.JSON(500, gin.H{"error": "Failed to save the proof"})
 	})
 
 	r.GET("/transactions", func(c *gin.Context) {
 		rows, err := db.Query(`SELECT t.id, e.name as event_name, t.user_name, COALESCE(t.email, ''), COALESCE(t.phone, ''), COALESCE(t.payment_method, ''), t.status, t.quantity, t.total_price, t.created_at, COALESCE(t.proof_image, '') FROM transactions t JOIN events e ON t.event_id = e.id ORDER BY t.created_at DESC`)
 
 		if err != nil {
-			fmt.Println("❌ ERROR TARIK DATA ADMIN:", err.Error())
+			fmt.Println("❌ ERROR RETRIEVING ADMIN DATA:", err.Error())
 			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
@@ -373,7 +391,7 @@ func main() {
 		rows, err := db.Query(`SELECT t.id, e.name as event_name, COALESCE(e.image, ''), t.status, t.quantity, t.total_price, t.created_at, COALESCE(t.payment_method, '') FROM transactions t JOIN events e ON t.event_id = e.id WHERE t.user_name = $1 ORDER BY t.created_at DESC`, username)
 
 		if err != nil {
-			fmt.Println("❌ ERROR TARIK DATA PROFIL:", err.Error())
+			fmt.Println("❌ ERROR RETRIEVING PROFILE DATA:", err.Error())
 			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
@@ -421,14 +439,21 @@ func main() {
 	r.POST("/register", func(c *gin.Context) {
 		var req AuthRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(400, gin.H{"error": "Format salah"})
+			c.JSON(400, gin.H{"error": "Invalid format"})
+			return
+		}
+
+		// ✅ SECURE: Hash password sebelum disimpan
+		hashedPassword, errHash := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
+		if errHash != nil {
+			c.JSON(500, gin.H{"error": "Failed to hash password"})
 			return
 		}
 
 		// ✅ FIX: Email harus disimpan saat mendaftar agar histori masuk email
-		_, err := db.Exec("INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, 'user')", req.Username, req.Email, req.Password)
+		_, err := db.Exec("INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, 'user')", req.Username, req.Email, string(hashedPassword))
 		if err != nil {
-			c.JSON(409, gin.H{"error": "Username/Email sudah terdaftar!"})
+			c.JSON(409, gin.H{"error": "Username/Email is already registered!"})
 			return
 		}
 		c.JSON(200, gin.H{"status": "success"})
@@ -437,24 +462,38 @@ func main() {
 	r.POST("/login", func(c *gin.Context) {
 		var req AuthRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(400, gin.H{"error": "Format data salah"})
+			c.JSON(400, gin.H{"error": "Invalid data format"})
 			return
 		}
 
 		var id int
-		var role, username, email string
+		var role, username, email, dbPassword string
 
-		err := db.QueryRow("SELECT id, role, username, COALESCE(email, '') FROM users WHERE (username = $1 OR email = $1) AND password = $2", req.Username, req.Password).Scan(&id, &role, &username, &email)
+		// ✅ SECURE: Ambil password hash dari DB
+		err := db.QueryRow("SELECT id, role, username, COALESCE(email, ''), password FROM users WHERE (username = $1 OR email = $1)", req.Username).Scan(&id, &role, &username, &email, &dbPassword)
 
 		if err != nil {
-			fmt.Println("❌ ERROR LOGIN DARI DATABASE:", err)
-			c.JSON(401, gin.H{"error": "Username/Email atau Password salah!"})
+			fmt.Println("❌ LOGIN ERROR: User not found", err)
+			c.JSON(401, gin.H{"error": "Incorrect username/email or password!"})
+			return
+		}
+
+		// ✅ SECURE: Cocokkan password teks dengan hash
+		err = bcrypt.CompareHashAndPassword([]byte(dbPassword), []byte(req.Password))
+		if err != nil {
+			fmt.Println("❌ LOGIN ERROR: Wrong password", err)
+			c.JSON(401, gin.H{"error": "Incorrect username/email or password!"})
 			return
 		}
 
 		c.JSON(200, gin.H{"status": "success", "role": role, "username": username, "email": email})
 	})
 
-	fmt.Println("✅ Mesin Backend RACEDAYTRIPS siap gas pol...")
-	r.Run(":8080")
+	fmt.Println("✅ Our RacedayTrips backend is fully fired up and ready to roll")
+	
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	r.Run(":" + port)
 }

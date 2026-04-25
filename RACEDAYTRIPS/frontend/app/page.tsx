@@ -241,20 +241,24 @@ export default function Home() {
               
               {latestEvents.map((event) => {
                 // ✅ FIX: Menggunakan Kamus Pintar
-                const getFlagCode = (countryName: string) => {
-                  if (!countryName) return "un"; 
-                  const name = countryName.toLowerCase().trim();
+                const getFlagCode = (name: string) => {
+                  if (!name) return "un";
+                  const n = name.toLowerCase().trim();
                   const map: Record<string, string> = {
-                    "indonesia": "id", "malaysia": "my", "japan": "jp", "spain": "es", 
-                    "italy": "it", "france": "fr", "germany": "de", "great britain": "gb", "uk": "gb", 
-                    "usa": "us", "australia": "au", "netherlands": "nl", "singapore": "sg",
-                    "qatar": "qa", "portugal": "pt", "argentina": "ar", "austria": "at",
-                    "thailand": "th", "india": "in", "san marino": "sm", "monaco": "mc",
-                    "saudi arabia": "sa", "bahrain": "bh", "china": "cn", "brazil": "br",
-                    "mexico": "mx", "canada": "ca", "belgium": "be", "hungary": "hu",
-                    "azerbaijan": "az", "uae": "ae", "united arab emirates": "ae"
+                    "indonesia": "id", "malaysia": "my", "japan": "jp", "spain": "es", "italy": "it", 
+                    "france": "fr", "germany": "de", "great britain": "gb", "uk": "gb", "usa": "us", 
+                    "australia": "au", "netherlands": "nl", "singapore": "sg", "qatar": "qa", 
+                    "portugal": "pt", "argentina": "ar", "austria": "at", "thailand": "th", 
+                    "india": "in", "san marino": "sm", "monaco": "mc", "saudi arabia": "sa", 
+                    "bahrain": "bh", "china": "cn", "brazil": "br", "mexico": "mx", "canada": "ca", 
+                    "belgium": "be", "hungary": "hu", "azerbaijan": "az", "uae": "ae",
+                    // ✅ TAMBAHAN NEGARA/REGION BARU:
+                    "catalonia": "es-ct",
+                    "valencia": "es-vc",
+                    "czechia": "cz",
+                    "czech republic": "cz"
                   };
-                  return map[name] || "un"; 
+                  return map[n] || "un";
                 };
 
                 const countryCode = getFlagCode(event.country);
@@ -285,11 +289,8 @@ export default function Home() {
                         <h3 className="text-xl font-bold text-white mb-2 leading-tight group-hover:text-red-500 transition-colors">{event.name}</h3>
                         <p className="text-gray-400 text-sm mb-4">📍 {event.circuit}</p>
                         
-                        <div className="mt-auto pt-4 border-t border-gray-800 flex justify-between items-center">
-                          <span className="text-white font-black text-lg">
-                            $ {(event.price / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                          
+                        {/* ✅ FIX: Hapus harga, sisakan badge negara rata kanan */}
+                        <div className="mt-auto pt-4 border-t border-gray-800 flex justify-end items-center">
                           <span className="text-[10px] font-bold text-gray-400 bg-gray-900 px-2 py-1 rounded-md border border-gray-800 uppercase tracking-widest">
                             {event.country ? event.country : "INTL"}
                           </span>

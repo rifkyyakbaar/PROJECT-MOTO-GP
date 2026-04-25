@@ -35,15 +35,24 @@ function SearchResults() {
   const getDay = (dateStr: string) => new Date(dateStr).toLocaleDateString('en-US', { day: '2-digit' });
   const getYear = (dateStr: string) => new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric' });
 
-  const getFlagCode = (countryName: string) => {
-    if (!countryName) return "id";
-    const name = countryName.toLowerCase().trim();
+  const getFlagCode = (name: string) => {
+    if (!name) return "un";
+    const n = name.toLowerCase().trim();
     const map: Record<string, string> = {
-      "indonesia": "id", "malaysia": "my", "japan": "jp", "spain": "es", 
-      "italy": "it", "france": "fr", "germany": "de", "uk": "gb", 
-      "usa": "us", "australia": "au", "netherlands": "nl", "singapore": "sg"
+      "indonesia": "id", "malaysia": "my", "japan": "jp", "spain": "es", "italy": "it", 
+      "france": "fr", "germany": "de", "great britain": "gb", "uk": "gb", "usa": "us", 
+      "australia": "au", "netherlands": "nl", "singapore": "sg", "qatar": "qa", 
+      "portugal": "pt", "argentina": "ar", "austria": "at", "thailand": "th", 
+      "india": "in", "san marino": "sm", "monaco": "mc", "saudi arabia": "sa", 
+      "bahrain": "bh", "china": "cn", "brazil": "br", "mexico": "mx", "canada": "ca", 
+      "belgium": "be", "hungary": "hu", "azerbaijan": "az", "uae": "ae",
+      // ✅ TAMBAHAN NEGARA/REGION BARU:
+      "catalonia": "es-ct",
+      "valencia": "es-vc",
+      "czechia": "cz",
+      "czech republic": "cz"
     };
-    return map[name] || (name.length === 2 ? name : "un"); 
+    return map[n] || "un";
   };
 
   return (

@@ -20,43 +20,8 @@ function CheckoutContent() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [phoneCode, setPhoneCode] = useState("+62");
+  const [phone, setPhone] = useState(""); // ✅ Hanya butuh state ini sekarang
   const [paymentMethod, setPaymentMethod] = useState("TransferWise");
-
-  // ✅ FIX: Daftar 30 Negara Penyelenggara Balap + Kode Telepon
-  const racingCountries = [
-    { name: "Argentina", code: "AR", dial: "+54" },
-    { name: "Australia", code: "AU", dial: "+61" },
-    { name: "Austria", code: "AT", dial: "+43" },
-    { name: "Azerbaijan", code: "AZ", dial: "+994" },
-    { name: "Bahrain", code: "BH", dial: "+973" },
-    { name: "Belgium", code: "BE", dial: "+32" },
-    { name: "Brazil", code: "BR", dial: "+55" },
-    { name: "Canada", code: "CA", dial: "+1" },
-    { name: "China", code: "CN", dial: "+86" },
-    { name: "Czech Republic", code: "CZ", dial: "+420" },
-    { name: "France", code: "FR", dial: "+33" },
-    { name: "Germany", code: "DE", dial: "+49" },
-    { name: "Hungary", code: "HU", dial: "+36" },
-    { name: "Indonesia", code: "ID", dial: "+62" },
-    { name: "Italy", code: "IT", dial: "+39" },
-    { name: "Japan", code: "JP", dial: "+81" },
-    { name: "Malaysia", code: "MY", dial: "+60" },
-    { name: "Mexico", code: "MX", dial: "+52" },
-    { name: "Monaco", code: "MC", dial: "+377" },
-    { name: "Netherlands", code: "NL", dial: "+31" },
-    { name: "Portugal", code: "PT", dial: "+351" },
-    { name: "Qatar", code: "QA", dial: "+974" },
-    { name: "San Marino", code: "SM", dial: "+378" },
-    { name: "Saudi Arabia", code: "SA", dial: "+966" },
-    { name: "Singapore", code: "SG", dial: "+65" },
-    { name: "Spain", code: "ES", dial: "+34" },
-    { name: "Thailand", code: "TH", dial: "+66" },
-    { name: "UAE", code: "AE", dial: "+971" },
-    { name: "UK", code: "GB", dial: "+44" },
-    { name: "USA", code: "US", dial: "+1" },
-  ];
 
   const fetchEventData = () => {
     Promise.all([
@@ -128,7 +93,7 @@ function CheckoutContent() {
           user_name: username,
           quantity: buyQuantity,
           email: email,
-          phone: phoneCode + phone, 
+          phone: phone, // ✅ FIX: Langsung kirim isi input phone
           payment_method: `${paymentMethod} - [PK: ${pkgName}]`,
         }),
       });
@@ -257,22 +222,18 @@ function CheckoutContent() {
                   <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="racer@example.com" className="w-full bg-[#111] border border-gray-800 rounded-2xl py-3.5 px-5 text-sm text-white focus:border-red-600 focus:bg-black outline-none transition-all placeholder:text-gray-600" />
                 </div>
                 
+                {/* ✅ FIX: Form WhatsApp dibersihkan dari dropdown dan ditambah instruksi kecil */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">WhatsApp Number</label>
-                  <div className="flex gap-2">
-                    <div className="relative w-[35%]">
-                      {/* ✅ FIX: Memanggil Daftar 30 Negara di Sini */}
-                      <select value={phoneCode} onChange={(e) => setPhoneCode(e.target.value)} className="w-full bg-[#111] border border-gray-800 rounded-2xl py-3.5 pl-3 pr-6 text-sm text-white font-bold outline-none focus:border-red-600 appearance-none cursor-pointer">
-                        {racingCountries.map((c) => (
-                          <option key={c.code} value={c.dial}>
-                            {c.code} {c.dial}
-                          </option>
-                        ))}
-                      </select>
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-xs">▼</span>
-                    </div>
-                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="812 3456..." className="w-[65%] bg-[#111] border border-gray-800 rounded-2xl py-3.5 px-4 text-sm text-white focus:border-red-600 focus:bg-black outline-none transition-all placeholder:text-gray-600" />
-                  </div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">
+                    WhatsApp Number <span className="normal-case font-normal text-gray-500 ml-1">(inc. Country Code)</span>
+                  </label>
+                  <input 
+                    type="tel" 
+                    value={phone} 
+                    onChange={(e) => setPhone(e.target.value)} 
+                    placeholder="+62 812 3456..." 
+                    className="w-full bg-[#111] border border-gray-800 rounded-2xl py-3.5 px-5 text-sm text-white focus:border-red-600 focus:bg-black outline-none transition-all placeholder:text-gray-600" 
+                  />
                 </div>
                 
                 <div>
@@ -312,7 +273,7 @@ function CheckoutContent() {
             </button>
             
             <p className="text-[10px] text-gray-500 text-center mt-4 font-medium tracking-wide">
-              🔒 Safe & Secure Checkout. E-Ticket sent via WhatsApp/Email.
+              🔒 Safe & Secure Checkout. E-Ticket sent via WA/Email.
             </p>
           </div>
 
