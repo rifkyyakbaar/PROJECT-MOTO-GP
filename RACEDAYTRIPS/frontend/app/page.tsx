@@ -7,7 +7,7 @@ export default function Home() {
   const router = useRouter();
 
   // 🖼️ 1. SLIDE IMAGES
-  const images = ["/images/gpmandalika.jpg", "/images/f1.jpg", "/images/wsbk.jpg", "/images/gtworld.jpg"];
+  const images = ["/images/gpmandalika.jpg", "/images/f1.jpg"];
 
   // ⚙️ 2. STATES LOGIC 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -82,8 +82,7 @@ export default function Home() {
   const categories = [
     { href: "/f1", name: "Formula 1", img: "/images/f1.jpg", desc: "The pinnacle of motorsport. Watch the fastest road jet fighters at iconic circuits." },
     { href: "/motogp", name: "MotoGP", img: "/images/motogp.jpg", desc: "Pure adrenaline on two wheels. Book official tickets for Mandalika, Sepang, and more." },
-    { href: "/wsbk", name: "WSBK", img: "/images/wsbk.jpg", desc: "World Superbike Championship. Intense battles from modified mass-production motorbikes." },
-    { href: "/gtworld", name: "GT World", img: "/images/gtworld.jpg", desc: "Grand Touring racing. Witness ultimate GT3 beasts competing on legendary tracks." },
+    { href: "/trackday", name: "Track Day", img: "/images/gtworld.jpg", desc: "Track Day for Cars & Motorcycles. Ready to offer Car & Motorcycle Track Day experiences soon." },
   ];
 
   return (
@@ -99,8 +98,7 @@ export default function Home() {
         <div className="hidden md:flex space-x-6 items-center">
           <Link href="/f1" className="hover:text-red-500 font-semibold drop-shadow-md text-sm uppercase">Formula 1</Link>
           <Link href="/motogp" className="hover:text-red-500 font-semibold drop-shadow-md text-sm uppercase">MotoGP</Link>
-          <Link href="/wsbk" className="hover:text-red-500 font-semibold drop-shadow-md text-sm uppercase">WSBK</Link>
-          <Link href="/gtworld" className="hover:text-red-500 font-semibold drop-shadow-md text-sm uppercase">GT World</Link>
+          <Link href="/trackday" className="hover:text-red-500 font-semibold drop-shadow-md text-sm uppercase">Track Day</Link>
           
           {/* 👤 LOGIKA TOMBOL LOGIN vs PROFIL (DESKTOP) */}
           {isLoggedIn ? (
@@ -160,8 +158,7 @@ export default function Home() {
 
           <Link href="/f1" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold uppercase tracking-wider hover:text-red-500">Formula 1</Link>
           <Link href="/motogp" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold uppercase tracking-wider hover:text-red-500">MotoGP</Link>
-          <Link href="/wsbk" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold uppercase tracking-wider hover:text-red-500">WSBK</Link>
-          <Link href="/gtworld" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold uppercase tracking-wider hover:text-red-500">GT World</Link>
+          <Link href="/trackday" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold uppercase tracking-wider hover:text-red-500">Track Day</Link>
           
           {isLoggedIn ? (
             <>
@@ -321,7 +318,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6">
           <h2 className="text-3xl md:text-4xl font-extrabold mb-12 md:mb-16 text-center uppercase tracking-tight">Explore <span className="text-red-600">Race Categories</span></h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
-            {categories.map((cat, index) => (
+            {categories.slice(0, 2).map((cat, index) => (
               <Link key={index} href={cat.href} className="group block">
                 <div className="bg-gray-900 rounded-3xl overflow-hidden shadow-2xl border border-gray-800 hover:border-red-600 transition-all transform hover:-translate-y-2 cursor-pointer h-full relative">
                   <div className="h-64 md:h-72 overflow-hidden relative">
@@ -335,6 +332,21 @@ export default function Home() {
                 </div>
               </Link>
             ))}
+
+            <div className="md:col-span-2 flex justify-center">
+              <Link href={categories[2].href} className="group block w-full md:w-1/2">
+                <div className="bg-gray-900 rounded-3xl overflow-hidden shadow-2xl border border-gray-800 hover:border-red-600 transition-all transform hover:-translate-y-2 cursor-pointer h-full relative">
+                  <div className="h-64 md:h-72 overflow-hidden relative">
+                    <img src={categories[2].img} alt={categories[2].name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"/>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/100 via-black/40 to-transparent"></div>
+                  </div>
+                  <div className="p-6 md:p-8 absolute bottom-0 left-0 w-full">
+                    <h3 className="text-4xl md:text-5xl font-black italic text-white tracking-wider uppercase drop-shadow-lg mb-2">{categories[2].name}</h3>
+                    <p className="text-gray-300 text-sm md:text-lg leading-relaxed max-w-xl group-hover:text-white transition-colors">{categories[2].desc}</p>
+                  </div>
+                </div>
+              </Link>
+            </div>
           </div>
         </div>
       </div>

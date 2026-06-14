@@ -49,8 +49,6 @@ export default function PackagesPage() {
     const cat = category?.toLowerCase() || "";
     if (cat.includes("motogp")) return "/images/motogp.jpg";
     if (cat.includes("f1") || cat.includes("formula")) return "/images/f1.jpg";
-    if (cat.includes("wsbk")) return "/images/wsbk.jpg";
-    if (cat.includes("gt")) return "/images/gtworld.jpg";
     return "/images/gpmandalika.jpg"; 
   };
 
@@ -58,8 +56,6 @@ export default function PackagesPage() {
     const cat = category?.toLowerCase() || "";
     if (cat.includes("motogp")) return "/motogp";
     if (cat.includes("f1") || cat.includes("formula")) return "/f1";
-    if (cat.includes("wsbk")) return "/wsbk";
-    if (cat.includes("gt")) return "/gtworld";
     return "/"; 
   };
 
@@ -111,11 +107,12 @@ export default function PackagesPage() {
         <div className="space-y-6">
           {packagesList.length > 0 ? (
             packagesList.map((pkg) => {
-              // Cek stok apakah habis
-              const isAvailable = pkg.stock && pkg.stock > 0;
+              // Cek stok dan status aktif
+              const isAvailable = pkg.stock && pkg.stock > 0 && pkg.is_active !== false;
+              const isActive = pkg.is_active !== false;
 
               return (
-                <div key={pkg.id} className="bg-[#111]/90 backdrop-blur-md border border-gray-800 rounded-3xl overflow-hidden flex flex-col md:flex-row hover:border-red-600 transition-all transform hover:-translate-y-1 shadow-2xl group">
+                <div key={pkg.id} className={`bg-[#111]/90 backdrop-blur-md border border-gray-800 rounded-3xl overflow-hidden flex flex-col md:flex-row shadow-2xl group ${isActive ? 'hover:border-red-600 transition-all transform hover:-translate-y-1' : 'opacity-60 grayscale'}`}>
                   
                   {/* BAGIAN KIRI KOTAK PAKET */}
                   <div className="p-6 md:p-8 md:w-2/3 relative overflow-hidden flex flex-col justify-center min-h-[180px]">
@@ -130,9 +127,9 @@ export default function PackagesPage() {
                     <div className="relative z-10">
                       
                       <div className="flex items-center gap-2 mb-3">
-                        <span className={`w-2 h-2 rounded-full ${isAvailable ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
-                        <span className={`text-[10px] font-bold uppercase tracking-widest ${isAvailable ? 'text-green-500' : 'text-red-500'}`}>
-                          {isAvailable ? `Ticket Available (${pkg.stock} in stock)` : 'SOLD OUT'}
+                        <span className={`w-2 h-2 rounded-full ${isActive ? (isAvailable ? 'bg-green-500 animate-pulse' : 'bg-red-500') : 'bg-gray-500'}`}></span>
+                        <span className={`text-[10px] font-bold uppercase tracking-widest ${isActive ? (isAvailable ? 'text-green-500' : 'text-red-500') : 'text-gray-400'}`}>
+                          {!isActive ? 'UNAVAILABLE' : isAvailable ? `Ticket Available (${pkg.stock} in stock)` : 'SOLD OUT'}
                         </span>
                       </div>
 
@@ -156,7 +153,7 @@ export default function PackagesPage() {
                         : "bg-gray-800 text-gray-500 pointer-events-none"
                       }`}
                     >
-                      {isAvailable ? "Select Package" : "Sold Out"}
+                      {!isActive ? "Unavailable" : isAvailable ? "Select Package" : "Sold Out"}
                     </Link>
                   </div>
                 </div>

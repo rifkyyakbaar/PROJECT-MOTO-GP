@@ -26,12 +26,12 @@ export default function AdminDashboard() {
 
   const [eventFormData, setEventFormData] = useState({
     name: "", circuit: "", date: "", end_date: "", time: "14:00", 
-    category: "MotoGP", description: "", existing_image: "", country: ""
+    category: "MotoGP", description: "", existing_image: "", country: "", is_active: true
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
 
   const [pkgFormData, setPkgFormData] = useState({
-    event_id: "", name: "", price: "", stock: "", description: ""
+    event_id: "", name: "", price: "", stock: "", description: "", is_active: true
   });
 
   const [filterTransactionStatus, setFilterTransactionStatus] = useState("All");
@@ -86,28 +86,28 @@ export default function AdminDashboard() {
     setModalTarget("event"); setModalMode("edit"); setEditId(event.id);
     setEventFormData({
       name: event.name, circuit: event.circuit, date: event.date, end_date: event.end_date || "", time: event.time,
-      category: event.category, description: event.description, existing_image: event.image, country: event.country || ""
+      category: event.category, description: event.description, existing_image: event.image, country: event.country || "", is_active: event.is_active !== false
     });
     setImageFile(null); setIsModalOpen(true);
   };
 
   const handleAddEvent = () => {
     setModalTarget("event"); setModalMode("add"); setEditId(null);
-    setEventFormData({ name: "", circuit: "", date: "", end_date: "", time: "14:00", category: "MotoGP", description: "", existing_image: "", country: "" });
+    setEventFormData({ name: "", circuit: "", date: "", end_date: "", time: "14:00", category: "MotoGP", description: "", existing_image: "", country: "", is_active: true });
     setImageFile(null); setIsModalOpen(true);
   };
 
   const handleEditPackage = (pkg: any) => {
     setModalTarget("package"); setModalMode("edit"); setEditId(pkg.id);
     setPkgFormData({
-      event_id: pkg.event_id?.toString() || "", name: pkg.name, price: pkg.price?.toString() || "", stock: pkg.stock?.toString() || "", description: pkg.description || ""
+      event_id: pkg.event_id?.toString() || "", name: pkg.name, price: pkg.price?.toString() || "", stock: pkg.stock?.toString() || "", description: pkg.description || "", is_active: pkg.is_active !== false
     });
     setIsModalOpen(true);
   };
 
   const handleAddPackage = () => {
     setModalTarget("package"); setModalMode("add"); setEditId(null);
-    setPkgFormData({ event_id: "", name: "", price: "", stock: "", description: "" });
+    setPkgFormData({ event_id: "", name: "", price: "", stock: "", description: "", is_active: true });
     setIsModalOpen(true);
   };
 
@@ -122,6 +122,7 @@ export default function AdminDashboard() {
       dataToSend.append("time", eventFormData.time); dataToSend.append("category", eventFormData.category);
       dataToSend.append("country", eventFormData.country);
       dataToSend.append("description", eventFormData.description); dataToSend.append("existing_image", eventFormData.existing_image);
+      dataToSend.append("is_active", eventFormData.is_active.toString());
       if (imageFile) dataToSend.append("image", imageFile);
 
       const url = modalMode === "add" ? "http://localhost:8080/events" : `http://localhost:8080/events/${editId}`;
@@ -146,7 +147,8 @@ export default function AdminDashboard() {
             name: pkgFormData.name,
             price: Number(pkgFormData.price),
             stock: Number(pkgFormData.stock),
-            description: pkgFormData.description
+            description: pkgFormData.description,
+            is_active: pkgFormData.is_active
           })
         });
         if (response.ok) { alert("✅ Package saved!"); setIsModalOpen(false); fetchPackages(); } 
@@ -245,7 +247,7 @@ export default function AdminDashboard() {
                   <div><label className="block text-sm font-bold text-gray-700 mb-1">Start Date</label><input type="date" required value={eventFormData.date} onChange={(e) => setEventFormData({...eventFormData, date: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:border-red-500" /></div>
                   <div><label className="block text-sm font-bold text-gray-700 mb-1">End Date <span className="text-gray-400 font-normal">(Optional)</span></label><input type="date" value={eventFormData.end_date} onChange={(e) => setEventFormData({...eventFormData, end_date: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:border-red-500" /></div>
                   <div><label className="block text-sm font-bold text-gray-700 mb-1">Start Time</label><input type="time" required value={eventFormData.time} onChange={(e) => setEventFormData({...eventFormData, time: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:border-red-500" /></div>
-                  <div><label className="block text-sm font-bold text-gray-700 mb-1">Category</label><select value={eventFormData.category} onChange={(e) => setEventFormData({...eventFormData, category: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:border-red-500"><option value="MotoGP">MotoGP</option><option value="F1">Formula 1</option><option value="WSBK">WSBK</option><option value="GT World">GT World</option></select></div>
+                  <div><label className="block text-sm font-bold text-gray-700 mb-1">Category</label><select value={eventFormData.category} onChange={(e) => setEventFormData({...eventFormData, category: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:border-red-500"><option value="MotoGP">MotoGP</option><option value="F1">Formula 1</option></select></div>
                   
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Country</label>
@@ -295,6 +297,10 @@ export default function AdminDashboard() {
                     <label className="block text-sm font-bold text-gray-700 mb-1">Upload Event Poster</label>
                     <input type="file" accept=".jpg,.jpeg,.png" onChange={(e) => setImageFile(e.target.files ? e.target.files[0] : null)} className="w-full bg-gray-50 border border-gray-200 rounded-xl py-1.5 px-4 focus:outline-none focus:border-red-500 text-sm" />
                   </div>
+                  <div className="md:col-span-2 flex items-center gap-3">
+                    <input type="checkbox" id="event_active" checked={eventFormData.is_active} onChange={(e) => setEventFormData({...eventFormData, is_active: e.target.checked})} className="w-5 h-5 text-red-600 rounded" />
+                    <label htmlFor="event_active" className="font-bold text-gray-700">Event is Active (Visible to users)</label>
+                  </div>
                   <div className="md:col-span-2"><label className="block text-sm font-bold text-gray-700 mb-1">Description</label><textarea rows={3} value={eventFormData.description} onChange={(e) => setEventFormData({...eventFormData, description: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:border-red-500"></textarea></div>
                 </div>
               ) : (
@@ -325,6 +331,10 @@ export default function AdminDashboard() {
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Package Description</label>
                     <textarea rows={3} placeholder="What's included in this package?" value={pkgFormData.description} onChange={(e) => setPkgFormData({...pkgFormData, description: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:border-red-500"></textarea>
+                  </div>
+                  <div className="flex items-center gap-3 mt-2">
+                    <input type="checkbox" id="pkg_active" checked={pkgFormData.is_active} onChange={(e) => setPkgFormData({...pkgFormData, is_active: e.target.checked})} className="w-5 h-5 text-red-600 rounded" />
+                    <label htmlFor="pkg_active" className="font-bold text-gray-700">Package is Active (Available for purchase)</label>
                   </div>
                 </div>
               )}
@@ -394,7 +404,7 @@ export default function AdminDashboard() {
               <div className="flex gap-3">
                 <input type="text" placeholder="Search event..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 focus:outline-none focus:border-red-500 font-medium text-sm" />
                 <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="bg-gray-50 border border-gray-200 rounded-xl py-2 px-3 font-bold text-gray-700 text-sm focus:outline-none">
-                  <option value="All">All Categories</option><option value="MotoGP">MotoGP</option><option value="F1">Formula 1</option><option value="WSBK">WSBK</option><option value="GT World">GT World</option>
+                  <option value="All">All Categories</option><option value="MotoGP">MotoGP</option><option value="F1">Formula 1</option>
                 </select>
               </div>
               <button onClick={handleAddEvent} className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md transition-colors">
@@ -414,6 +424,7 @@ export default function AdminDashboard() {
                       <td className="p-4">
                         <p className="font-bold text-gray-900 text-lg">{event.name}</p>
                         <span className="text-xs text-gray-500 bg-white border border-gray-200 px-2 py-0.5 rounded-md">📅 {formatDate(event.date)}</span>
+                        {event.is_active === false && <span className="ml-2 text-[10px] font-bold uppercase bg-red-100 text-red-600 px-2 py-0.5 rounded-md">Inactive</span>}
                       </td>
                       <td className="p-4 text-center">
                         <button onClick={() => handleEditEvent(event)} className="text-blue-600 font-bold text-xs mr-3">Edit</button>
@@ -461,7 +472,10 @@ export default function AdminDashboard() {
                               {parentEvent ? parentEvent.name : `Event ID: ${pkg.event_id}`}
                             </span>
                           </td>
-                          <td className="p-4 font-bold text-gray-900">{pkg.name}</td>
+                          <td className="p-4">
+                            <span className="font-bold text-gray-900 block">{pkg.name}</span>
+                            {pkg.is_active === false && <span className="text-[10px] font-bold uppercase bg-red-100 text-red-600 px-2 py-0.5 rounded-md mt-1 inline-block">Inactive</span>}
+                          </td>
                           <td className="p-4 font-black text-red-600 text-center">
                             $ {(pkg.price / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>

@@ -3,7 +3,9 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -43,6 +45,59 @@ type PackageRequest struct {
 	Price       int    `json:"price"`
 	Stock       int    `json:"stock"`
 	Description string `json:"description"`
+	IsActive    *bool  `json:"is_active"`
+}
+
+// =====================================================================
+// HELPER: UPLOAD KE SUPABASE STORAGE
+// =====================================================================
+
+func uploadToSupabase(file *multipart.FileHeader) (string, error) {
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	supabaseKey := os.Getenv("SUPABASE_KEY")
+
+	if supabaseURL == "" || supabaseKey == "" {
+		return "", fmt.Errorf("SUPABASE_URL atau SUPABASE_KEY belum diatur di .env")
+	}
+
+	src, err := file.Open()
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
+
+	filename := fmt.Sprintf("%d_%s", time.Now().Unix(), filepath.Base(file.Filename))
+
+	// Endpoint API Supabase Storage (pastikan bucket bernama 'uploads')
+	uploadURL := fmt.Sprintf("%s/storage/v1/object/uploads/%s", supabaseURL, filename)
+
+	req, err := http.NewRequest("POST", uploadURL, src)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+supabaseKey)
+	contentType := file.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	req.Header.Set("Content-Type", contentType)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("gagal upload ke supabase: %s", string(bodyBytes))
+	}
+
+	// Buat Public URL
+	publicURL := fmt.Sprintf("%s/storage/v1/object/public/uploads/%s", supabaseURL, filename)
+	return publicURL, nil
 }
 
 // =====================================================================
@@ -77,6 +132,10 @@ func main() {
 	os.MkdirAll("./uploads", os.ModePerm)
 	r := gin.Default()
 
+	// Migrasi otomatis kolom is_active jika belum ada
+	db.Exec("ALTER TABLE events ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE")
+	db.Exec("ALTER TABLE packages ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE")
+
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{frontendURL},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
@@ -90,7 +149,7 @@ func main() {
 	// 1. RUTE EVENTS
 	// -----------------------------------------------------------------
 	r.GET("/events", func(c *gin.Context) {
-		rows, err := db.Query("SELECT id, name, circuit, date, time, price, category, stock, COALESCE(country, 'id'), COALESCE(image, ''), COALESCE(description, ''), COALESCE(end_date::TEXT, '') FROM events ORDER BY date ASC")
+		rows, err := db.Query("SELECT id, name, circuit, date, time, price, category, stock, COALESCE(country, 'id'), COALESCE(image, ''), COALESCE(description, ''), COALESCE(end_date::TEXT, ''), COALESCE(is_active, TRUE) FROM events ORDER BY date ASC")
 		if err != nil {
 			fmt.Println("❌ ERROR RETRIEVING EVENTS:", err.Error())
 			c.JSON(500, gin.H{"error": err.Error()})
@@ -102,8 +161,9 @@ func main() {
 		for rows.Next() {
 			var id, price, stock int
 			var name, circuit, date, time, category, country, image, description, endDate string
+			var isActive bool
 
-			errScan := rows.Scan(&id, &name, &circuit, &date, &time, &price, &category, &stock, &country, &image, &description, &endDate)
+			errScan := rows.Scan(&id, &name, &circuit, &date, &time, &price, &category, &stock, &country, &image, &description, &endDate, &isActive)
 			if errScan != nil {
 				fmt.Println("❌ ERROR SCANNING EVENT:", errScan.Error())
 				continue
@@ -113,6 +173,7 @@ func main() {
 				"id": id, "name": name, "circuit": circuit, "date": date, "time": time,
 				"price": price, "category": category, "stock": stock,
 				"country": country, "image": image, "description": description, "end_date": endDate,
+				"is_active": isActive,
 			})
 		}
 		c.JSON(200, events)
@@ -134,9 +195,11 @@ func main() {
 		if err == nil {
 			ext := strings.ToLower(filepath.Ext(file.Filename))
 			if ext == ".jpg" || ext == ".jpeg" || ext == ".png" {
-				filename := fmt.Sprintf("%d_%s", time.Now().Unix(), filepath.Base(file.Filename))
-				if c.SaveUploadedFile(file, "./uploads/"+filename) == nil {
-					imageURL = baseURL + "/uploads/" + filename
+				url, errUpload := uploadToSupabase(file)
+				if errUpload == nil {
+					imageURL = url
+				} else {
+					fmt.Println("❌ ERROR UPLOAD SUPABASE:", errUpload)
 				}
 			}
 		}
@@ -148,7 +211,13 @@ func main() {
 			endDateDb = endDate
 		}
 
-		db.Exec("INSERT INTO events (name, circuit, date, end_date, time, price, category, stock, country, image, description) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)", name, circuit, date, endDateDb, timeStr, price, category, stock, country, imageURL, description)
+		isActiveStr := c.PostForm("is_active")
+		isActive := true
+		if isActiveStr == "false" {
+			isActive = false
+		}
+
+		db.Exec("INSERT INTO events (name, circuit, date, end_date, time, price, category, stock, country, image, description, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)", name, circuit, date, endDateDb, timeStr, price, category, stock, country, imageURL, description, isActive)
 		c.JSON(200, gin.H{"status": "success"})
 	})
 
@@ -169,9 +238,11 @@ func main() {
 		if err == nil {
 			ext := strings.ToLower(filepath.Ext(file.Filename))
 			if ext == ".jpg" || ext == ".jpeg" || ext == ".png" {
-				filename := fmt.Sprintf("%d_%s", time.Now().Unix(), filepath.Base(file.Filename))
-				if c.SaveUploadedFile(file, "./uploads/"+filename) == nil {
-					imageURL = baseURL + "/uploads/" + filename
+				url, errUpload := uploadToSupabase(file)
+				if errUpload == nil {
+					imageURL = url
+				} else {
+					fmt.Println("❌ ERROR UPLOAD SUPABASE:", errUpload)
 				}
 			}
 		}
@@ -183,7 +254,13 @@ func main() {
 			endDateDb = endDate
 		}
 
-		db.Exec("UPDATE events SET name=$1, circuit=$2, date=$3, end_date=$4, time=$5, price=$6, category=$7, stock=$8, country=$9, image=$10, description=$11 WHERE id=$12", name, circuit, date, endDateDb, timeStr, price, category, stock, country, imageURL, description, id)
+		isActiveStr := c.PostForm("is_active")
+		isActive := true
+		if isActiveStr == "false" {
+			isActive = false
+		}
+
+		db.Exec("UPDATE events SET name=$1, circuit=$2, date=$3, end_date=$4, time=$5, price=$6, category=$7, stock=$8, country=$9, image=$10, description=$11, is_active=$13 WHERE id=$12", name, circuit, date, endDateDb, timeStr, price, category, stock, country, imageURL, description, id, isActive)
 		c.JSON(200, gin.H{"status": "success"})
 	})
 
@@ -197,7 +274,7 @@ func main() {
 	// 2. RUTE PACKAGES
 	// -----------------------------------------------------------------
 	r.GET("/packages", func(c *gin.Context) {
-		rows, err := db.Query("SELECT id, event_id, name, price, COALESCE(stock, 0), COALESCE(description, '') FROM packages ORDER BY id DESC")
+		rows, err := db.Query("SELECT id, event_id, name, price, COALESCE(stock, 0), COALESCE(description, ''), COALESCE(is_active, TRUE) FROM packages ORDER BY id DESC")
 		if err != nil {
 			fmt.Println("❌ ERROR RETRIEVING PACKAGES:", err.Error())
 			c.JSON(500, gin.H{"error": err.Error()})
@@ -209,12 +286,13 @@ func main() {
 		for rows.Next() {
 			var id, eventID, price, stock int
 			var name, description string
+			var isActive bool
 
-			rows.Scan(&id, &eventID, &name, &price, &stock, &description)
+			rows.Scan(&id, &eventID, &name, &price, &stock, &description, &isActive)
 
 			pkgs = append(pkgs, map[string]interface{}{
 				"id": id, "event_id": eventID, "name": name,
-				"price": price, "stock": stock, "description": description,
+				"price": price, "stock": stock, "description": description, "is_active": isActive,
 			})
 		}
 		c.JSON(200, pkgs)
@@ -228,7 +306,11 @@ func main() {
 			return
 		}
 
-		_, err := db.Exec("INSERT INTO packages (event_id, name, price, stock, description) VALUES ($1, $2, $3, $4, $5)", req.EventID, req.Name, req.Price, req.Stock, req.Description)
+		var isActive bool = true
+		if req.IsActive != nil {
+			isActive = *req.IsActive
+		}
+		_, err := db.Exec("INSERT INTO packages (event_id, name, price, stock, description, is_active) VALUES ($1, $2, $3, $4, $5, $6)", req.EventID, req.Name, req.Price, req.Stock, req.Description, isActive)
 		if err != nil {
 			fmt.Println("❌ ERROR DATABASE SUPABASE (POST):", err)
 			c.JSON(500, gin.H{"error": "Failed to save the package"})
@@ -245,7 +327,11 @@ func main() {
 			return
 		}
 
-		_, err := db.Exec("UPDATE packages SET event_id=$1, name=$2, price=$3, stock=$4, description=$5 WHERE id=$6", req.EventID, req.Name, req.Price, req.Stock, req.Description, id)
+		var isActive bool = true
+		if req.IsActive != nil {
+			isActive = *req.IsActive
+		}
+		_, err := db.Exec("UPDATE packages SET event_id=$1, name=$2, price=$3, stock=$4, description=$5, is_active=$7 WHERE id=$6", req.EventID, req.Name, req.Price, req.Stock, req.Description, id, isActive)
 		if err != nil {
 			fmt.Println("❌ ERROR DATABASE SUPABASE (PUT):", err)
 			c.JSON(500, gin.H{"error": "Failed to update the package"})
@@ -334,17 +420,18 @@ func main() {
 
 		ext := strings.ToLower(filepath.Ext(file.Filename))
 		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".pdf" {
-			filename := fmt.Sprintf("proof_%d_%s", time.Now().Unix(), filepath.Base(file.Filename))
-			if c.SaveUploadedFile(file, "./uploads/"+filename) == nil {
-				proofURL := baseURL + "/uploads/" + filename
+			proofURL, errUpload := uploadToSupabase(file)
+			if errUpload == nil {
 				db.Exec("UPDATE transactions SET proof_image = $1 WHERE id = $2", proofURL, id)
 				c.JSON(200, gin.H{"status": "success", "proof_url": proofURL})
 				return
+			} else {
+				fmt.Println("❌ ERROR UPLOAD PROOF SUPABASE:", errUpload)
 			}
 		}
 		c.JSON(500, gin.H{"error": "Failed to save the proof"})
 	})
-
+	
 	r.GET("/transactions", func(c *gin.Context) {
 		rows, err := db.Query(`SELECT t.id, e.name as event_name, t.user_name, COALESCE(t.email, ''), COALESCE(t.phone, ''), COALESCE(t.payment_method, ''), t.status, t.quantity, t.total_price, t.created_at, COALESCE(t.proof_image, '') FROM transactions t JOIN events e ON t.event_id = e.id ORDER BY t.created_at DESC`)
 

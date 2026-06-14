@@ -7,19 +7,35 @@ export default function F1Page() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("http://localhost:8080/events")
-      .then((res) => res.json())
-      .then((data) => {
-        const f1Only = data.filter((item: any) => item.category === "F1" || item.category === "Formula 1");
-        setEvents(f1Only);
-        setLoading(false);
-      })
-      .catch((err) => { console.error("Error:", err); setLoading(false); });
+    Promise.all([
+      fetch("http://localhost:8080/events").then((res) => res.json()),
+      fetch("http://localhost:8080/packages").then((res) => res.json())
+    ])
+    .then(([eventsData, packagesData]) => {
+      const f1Only = eventsData.filter((item: any) => item.category === "F1" || item.category === "Formula 1");
+      
+      const eventsWithStock = f1Only.map((ev: any) => {
+        const evPkgs = Array.isArray(packagesData) ? packagesData.filter((p: any) => p.event_id === ev.id && p.is_active !== false) : [];
+        const totalStock = evPkgs.reduce((sum: number, p: any) => sum + (p.stock || 0), 0);
+        return { ...ev, stock: totalStock };
+      });
+
+      setEvents(eventsWithStock);
+      setLoading(false);
+    })
+    .catch((err) => { console.error("Error:", err); setLoading(false); });
   }, []);
 
   const getMonth = (dateStr: string) => new Date(dateStr).toLocaleDateString('id-ID', { month: 'short' }).toUpperCase();
   const getDay = (dateStr: string) => new Date(dateStr).toLocaleDateString('id-ID', { day: '2-digit' });
   const getYear = (dateStr: string) => new Date(dateStr).toLocaleDateString('id-ID', { year: 'numeric' });
+
+  const isEventPassed = (dateStr: string, endDateStr: string) => {
+    const checkDate = endDateStr && endDateStr.trim() !== "" ? endDateStr : dateStr;
+    const eventDate = new Date(checkDate);
+    eventDate.setHours(23, 59, 59, 999);
+    return eventDate < new Date();
+  };
 
   const getFlagCode = (name: string) => {
     if (!name) return "un";
@@ -69,25 +85,26 @@ export default function F1Page() {
             {events.map((event) => {
               const flag = getFlagCode(event.country);
               const endDateObj = event.end_date && event.end_date.trim() !== "" ? new Date(event.end_date) : null;
+              const isPassed = isEventPassed(event.date, event.end_date);
+              const isActive = event.is_active !== false && !isPassed;
 
-              return (
-                <Link href={`/event/${event.id}/packages`} key={event.id} className="block group">
-                  <div className="relative rounded-2xl flex flex-col md:flex-row overflow-hidden border border-gray-800/60 hover:border-red-600 transition-all shadow-2xl transform hover:-translate-y-1 bg-[#111]">
+              const cardContent = (
+                  <div className={`relative rounded-2xl flex flex-col md:flex-row overflow-hidden border ${isActive ? 'border-gray-800/60 hover:border-red-600 transition-all shadow-2xl transform hover:-translate-y-1 bg-[#111]' : 'border-gray-800 bg-[#0a0a0a] opacity-50 grayscale'}`}>
                     
                     {event.image && (
                       <div className="absolute inset-0 z-0">
                         <img 
                           src={event.image} 
                           alt={event.name} 
-                          className="w-full h-full object-cover opacity-30 group-hover:opacity-60 transition-opacity duration-500 grayscale group-hover:grayscale-0" 
+                          className={`w-full h-full object-cover opacity-30 transition-opacity duration-500 ${isActive ? 'group-hover:opacity-60 grayscale group-hover:grayscale-0' : 'grayscale'}`} 
                         />
                         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-black/90"></div>
                       </div>
                     )}
 
                     <div className="relative z-10 bg-black/50 backdrop-blur-sm md:w-36 flex flex-col items-center justify-center p-4 border-b md:border-b-0 md:border-r border-gray-800/60 shrink-0">
-                      <span className="text-red-600 font-black tracking-widest">{getMonth(event.date)}</span>
-                      <span className="text-4xl md:text-5xl font-black text-white my-1 tracking-tighter">
+                      <span className={`${isActive ? 'text-red-600' : 'text-gray-500'} font-black tracking-widest`}>{getMonth(event.date)}</span>
+                      <span className={`text-4xl md:text-5xl font-black ${isActive ? 'text-white' : 'text-gray-400'} my-1 tracking-tighter`}>
                         {getDay(event.date)}
                         {endDateObj && endDateObj.getDate() !== new Date(event.date).getDate() ? `-${getDay(event.end_date)}` : ''}
                       </span>
@@ -95,20 +112,20 @@ export default function F1Page() {
                     </div>
 
                     <div className="relative z-10 flex-1 p-6 flex flex-col justify-center">
-                      <p className={`text-xs font-bold mb-2 uppercase flex items-center ${event.stock > 10 ? 'text-green-500' : 'text-orange-500'}`}>
-                        <span className="w-2 h-2 rounded-full mr-2 bg-current animate-pulse"></span>
-                        {event.stock > 0 ? `TICKET AVAILABLE (${event.stock} in Stock)` : 'SOLD OUT'}
+                      <p className={`text-xs font-bold mb-2 uppercase flex items-center ${!isActive ? 'text-gray-500' : event.stock > 10 ? 'text-green-500' : 'text-orange-500'}`}>
+                        {isActive && <span className="w-2 h-2 rounded-full mr-2 bg-current animate-pulse"></span>}
+                        {!isActive ? (isPassed ? 'EVENT FINISHED' : 'UNAVAILABLE') : event.stock > 0 ? `TICKET AVAILABLE (${event.stock} in Stock)` : 'SOLD OUT'}
                       </p>
-                      <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tight drop-shadow-lg">{event.name}</h2>
+                      <h2 className={`text-3xl font-black ${isActive ? 'text-white' : 'text-gray-500'} mb-2 uppercase tracking-tight drop-shadow-lg`}>{event.name}</h2>
                       <p className="text-gray-300 font-medium text-sm flex items-center gap-2 drop-shadow-md">
                         📍 {event.circuit} 
                       </p>
                     </div>
 
-                    <div className="relative z-10 md:w-64 p-6 flex flex-col justify-center items-end border-t md:border-t-0 md:border-l border-gray-800/60 bg-black/40 backdrop-blur-sm group-hover:bg-black/60 transition-colors shrink-0 overflow-hidden">
+                    <div className={`relative z-10 md:w-64 p-6 flex flex-col justify-center items-end border-t md:border-t-0 md:border-l border-gray-800/60 bg-black/40 backdrop-blur-sm transition-colors shrink-0 overflow-hidden ${isActive ? 'group-hover:bg-black/60' : ''}`}>
                       
                       <div 
-                        className="absolute inset-0 z-0 opacity-20 group-hover:opacity-40 transition-opacity duration-500 blur-[1px]"
+                        className={`absolute inset-0 z-0 opacity-20 transition-opacity duration-500 blur-[1px] ${isActive ? 'group-hover:opacity-40' : ''}`}
                         style={{ 
                           backgroundImage: `url('https://flagcdn.com/w320/${flag}.png')`, 
                           backgroundSize: 'cover', 
@@ -122,14 +139,23 @@ export default function F1Page() {
                         {event.country || "International"}
                       </p>
 
-                      <button className="relative z-10 w-full bg-red-600 hover:bg-white hover:text-black text-white font-black py-4 px-4 rounded-lg italic uppercase transition-all shadow-[0_0_15px_rgba(220,38,38,0.4)]">
-                        Select Packages
+                      <button disabled={!isActive} className={`relative z-10 w-full font-black py-4 px-4 rounded-lg italic uppercase transition-all ${isActive ? 'bg-red-600 hover:bg-white hover:text-black text-white shadow-[0_0_15px_rgba(220,38,38,0.4)]' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}>
+                        {isActive ? 'Select Packages' : 'Closed'}
                       </button>
 
                     </div>
 
                   </div>
+              );
+
+              return isActive ? (
+                <Link href={`/event/${event.id}/packages`} key={event.id} className="block group">
+                  {cardContent}
                 </Link>
+              ) : (
+                <div key={event.id} className="block group cursor-not-allowed">
+                  {cardContent}
+                </div>
               );
             })}
           </div>
