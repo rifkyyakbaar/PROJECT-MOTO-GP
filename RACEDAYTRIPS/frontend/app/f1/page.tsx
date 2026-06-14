@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { API_BASE_URL } from "../config";
 
 export default function F1Page() {
   const [events, setEvents] = useState<any[]>([]);
@@ -8,8 +9,8 @@ export default function F1Page() {
 
   useEffect(() => {
     Promise.all([
-      fetch("http://localhost:8080/events").then((res) => res.json()),
-      fetch("http://localhost:8080/packages").then((res) => res.json())
+      fetch(`${API_BASE_URL}/events`).then((res) => res.json()),
+      fetch(`${API_BASE_URL}/packages`).then((res) => res.json())
     ])
     .then(([eventsData, packagesData]) => {
       const f1Only = eventsData.filter((item: any) => item.category === "F1" || item.category === "Formula 1");

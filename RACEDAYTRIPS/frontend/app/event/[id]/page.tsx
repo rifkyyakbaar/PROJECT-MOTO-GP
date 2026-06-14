@@ -2,6 +2,7 @@
 import { useEffect, useState, Suspense } from "react"; 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { API_BASE_URL } from "../../config";
 
 function CheckoutContent() {
   const params = useParams(); 
@@ -25,8 +26,8 @@ function CheckoutContent() {
 
   const fetchEventData = () => {
     Promise.all([
-      fetch("http://localhost:8080/events").then(res => res.json()),
-      fetch("http://localhost:8080/packages").then(res => res.json())
+      fetch(`${API_BASE_URL}/events`).then(res => res.json()),
+      fetch(`${API_BASE_URL}/packages`).then(res => res.json())
     ])
     .then(([eventsData, packagesData]) => {
       if (Array.isArray(eventsData)) {
@@ -85,7 +86,7 @@ function CheckoutContent() {
     setIsProcessing(true);
 
     try {
-      const response = await fetch("http://localhost:8080/checkout", {
+      const response = await fetch(`${API_BASE_URL}/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

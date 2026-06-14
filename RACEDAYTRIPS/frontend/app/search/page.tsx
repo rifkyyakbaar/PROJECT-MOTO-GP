@@ -2,6 +2,7 @@
 import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { API_BASE_URL } from "../config";
 
 // Komponen utama untuk membaca URL dan melakukan pencarian
 function SearchResults() {
@@ -12,7 +13,7 @@ function SearchResults() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("http://localhost:8080/events")
+    fetch(`${API_BASE_URL}/events`)
       .then((res) => res.json())
       .then((data) => {
         if (!Array.isArray(data)) return;

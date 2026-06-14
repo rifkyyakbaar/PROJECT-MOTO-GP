@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { API_BASE_URL } from "../../../config";
 
 export default function PackagesPage() {
   const { id } = useParams();
@@ -13,8 +14,8 @@ export default function PackagesPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`http://localhost:8080/events`).then(res => res.json()),
-      fetch(`http://localhost:8080/packages`).then(res => res.json())
+      fetch(`${API_BASE_URL}/events`).then(res => res.json()),
+      fetch(`${API_BASE_URL}/packages`).then(res => res.json())
     ])
     .then(([eventsData, packagesData]) => {
       if (Array.isArray(eventsData)) {

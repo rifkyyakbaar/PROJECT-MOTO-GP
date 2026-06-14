@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { API_BASE_URL } from "../config";
 
 export default function AdminDashboard() {
   const [adminName, setAdminName] = useState("");
@@ -37,21 +38,21 @@ export default function AdminDashboard() {
   const [filterTransactionStatus, setFilterTransactionStatus] = useState("All");
 
   const fetchEvents = () => {
-    fetch("http://localhost:8080/events")
+    fetch(`${API_BASE_URL}/events`)
       .then((res) => res.json())
       .then((data) => { if (Array.isArray(data)) setEvents(data); })
       .catch((err) => console.error(err));
   };
 
   const fetchPackages = () => {
-    fetch("http://localhost:8080/packages")
+    fetch(`${API_BASE_URL}/packages`)
       .then((res) => res.json())
       .then((data) => { if (Array.isArray(data)) setPackages(data); })
       .catch((err) => console.error("Endpoint /packages are not ready on the backend yet."));
   };
 
   const fetchTransactions = () => {
-    fetch("http://localhost:8080/transactions")
+    fetch(`${API_BASE_URL}/transactions`)
       .then((res) => res.json())
       .then((data) => {
         const trxData = data.history ? data.history : [];
@@ -125,7 +126,7 @@ export default function AdminDashboard() {
       dataToSend.append("is_active", eventFormData.is_active.toString());
       if (imageFile) dataToSend.append("image", imageFile);
 
-      const url = modalMode === "add" ? "http://localhost:8080/events" : `http://localhost:8080/events/${editId}`;
+      const url = modalMode === "add" ? `${API_BASE_URL}/events` : `${API_BASE_URL}/events/${editId}`;
       const method = modalMode === "add" ? "POST" : "PUT";
 
       try {
@@ -135,7 +136,7 @@ export default function AdminDashboard() {
       } catch (error) { alert("System error occurred."); }
     } 
     else if (modalTarget === "package") {
-      const url = modalMode === "add" ? "http://localhost:8080/packages" : `http://localhost:8080/packages/${editId}`;
+      const url = modalMode === "add" ? `${API_BASE_URL}/packages` : `${API_BASE_URL}/packages/${editId}`;
       const method = modalMode === "add" ? "POST" : "PUT";
 
       try {
@@ -161,27 +162,27 @@ export default function AdminDashboard() {
 
   const handleDeleteEvent = async (id: number, name: string) => {
     if (window.confirm(`Delete event "${name}"?`)) {
-      const res = await fetch(`http://localhost:8080/events/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE_URL}/events/${id}`, { method: "DELETE" });
       if (res.ok) fetchEvents();
     }
   };
 
   const handleDeletePackage = async (id: number, name: string) => {
     if (window.confirm(`Delete package "${name}"?`)) {
-      const res = await fetch(`http://localhost:8080/packages/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE_URL}/packages/${id}`, { method: "DELETE" });
       if (res.ok) fetchPackages();
     }
   };
 
   const handleDeleteTransaction = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this order?")) return;
-    const res = await fetch(`http://localhost:8080/transactions/${id}`, { method: "DELETE" });
+    const res = await fetch(`${API_BASE_URL}/transactions/${id}`, { method: "DELETE" });
     if (res.ok) { alert("✅ Order deleted!"); fetchTransactions(); }
   };
 
   const handleMarkAsPaid = async (transactionId: number) => {
     if (!window.confirm("Mark as Paid now?")) return;
-    const res = await fetch(`http://localhost:8080/transactions/${transactionId}/lunas`, { method: "PUT" });
+    const res = await fetch(`${API_BASE_URL}/transactions/${transactionId}/lunas`, { method: "PUT" });
     if (res.ok) fetchTransactions();
   };
 
@@ -190,7 +191,7 @@ export default function AdminDashboard() {
     if (!window.confirm("Upload receipt/nota image for this transaction?")) return;
     const data = new FormData(); 
     data.append("proof", file);
-    const res = await fetch(`http://localhost:8080/transactions/${id}/upload-proof`, { method: "PUT", body: data });
+    const res = await fetch(`${API_BASE_URL}/transactions/${id}/upload-proof`, { method: "PUT", body: data });
     if (res.ok) { alert("✅ Receipt uploaded!"); fetchTransactions(); }
     else { alert("❌ Failed to upload receipt."); }
   };

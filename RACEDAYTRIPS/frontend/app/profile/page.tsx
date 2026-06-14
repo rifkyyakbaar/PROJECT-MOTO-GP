@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { API_BASE_URL } from "../config";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -22,8 +23,8 @@ export default function ProfilePage() {
     setUsername(storedName || "Racer");
 
     Promise.all([
-      fetch(`http://localhost:8080/my-transactions?username=${encodeURIComponent(storedName || "")}`).then(res => res.json()),
-      fetch(`http://localhost:8080/events`).then(res => res.json())
+      fetch(`${API_BASE_URL}/my-transactions?username=${encodeURIComponent(storedName || "")}`).then(res => res.json()),
+      fetch(`${API_BASE_URL}/events`).then(res => res.json())
     ])
     .then(([transactionsData, eventsData]) => {
       if (transactionsData && !transactionsData.error) {

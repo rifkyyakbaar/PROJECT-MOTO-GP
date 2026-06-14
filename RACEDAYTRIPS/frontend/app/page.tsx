@@ -3,6 +3,8 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+import { API_BASE_URL } from "./config";
+
 export default function Home() {
   const router = useRouter();
 
@@ -33,7 +35,7 @@ export default function Home() {
     }
 
     // Mengambil Jadwal Terdekat
-    fetch("http://localhost:8080/events")
+    fetch(`${API_BASE_URL}/events`)
       .then((res) => res.json())
       .then((data) => {
         if (!Array.isArray(data)) {
