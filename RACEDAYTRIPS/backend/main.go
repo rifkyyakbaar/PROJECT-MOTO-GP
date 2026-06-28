@@ -77,6 +77,7 @@ func uploadToSupabase(file *multipart.FileHeader) (string, error) {
 	}
 
 	req.Header.Set("Authorization", "Bearer "+supabaseKey)
+	req.Header.Set("apikey", supabaseKey)
 	contentType := file.Header.Get("Content-Type")
 	if contentType == "" {
 		contentType = "application/octet-stream"
