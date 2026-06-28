@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
 	"io"
@@ -145,6 +146,52 @@ func main() {
 	}))
 
 	r.Static("/uploads", "./uploads")
+
+	r.GET("/test-supabase", func(c *gin.Context) {
+		supabaseURL := os.Getenv("SUPABASE_URL")
+		supabaseKey := os.Getenv("SUPABASE_KEY")
+
+		maskedKey := ""
+		if len(supabaseKey) > 15 {
+			maskedKey = supabaseKey[:15] + "..."
+		} else {
+			maskedKey = "too short (" + strconv.Itoa(len(supabaseKey)) + " chars)"
+		}
+
+		dummyData := []byte("diagnostic test file upload from hugging face server")
+		uploadURL := fmt.Sprintf("%s/storage/v1/object/uploads/diagnostic_test_%d.txt", supabaseURL, time.Now().Unix())
+
+		req, err := http.NewRequest("POST", uploadURL, bytes.NewReader(dummyData))
+		if err != nil {
+			c.JSON(500, gin.H{"error": "failed to create request: " + err.Error()})
+			return
+		}
+
+		req.Header.Set("Authorization", "Bearer "+supabaseKey)
+		req.Header.Set("apikey", supabaseKey)
+		req.Header.Set("Content-Type", "text/plain")
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			c.JSON(500, gin.H{
+				"error":      "failed to execute request: " + err.Error(),
+				"url":        supabaseURL,
+				"masked_key": maskedKey,
+			})
+			return
+		}
+		defer resp.Body.Close()
+
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		c.JSON(200, gin.H{
+			"status":      resp.Status,
+			"status_code": resp.StatusCode,
+			"body":        string(bodyBytes),
+			"url":        supabaseURL,
+			"masked_key": maskedKey,
+		})
+	})
 
 	// -----------------------------------------------------------------
 	// 1. RUTE EVENTS
